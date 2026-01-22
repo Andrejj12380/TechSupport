@@ -1,0 +1,7 @@
+{
+  "name": "TechSupport Pro - Equipment Management System",
+  "description": "A comprehensive technical support data management system for client equipment installations, featuring hierarchical views, network configurations, and remote access management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

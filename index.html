@@ -1,0 +1,115 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechSupport Pro</title>
+    <!-- Favicon (SVG) -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="shortcut icon" href="/favicon.svg">
+    <meta name="theme-color" content="#FF5B00">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#475569',
+                            600: '#334155',
+                            700: '#1e293b',
+                            800: '#0f172a',
+                            900: '#050914',
+                            950: '#020205',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+          font-family: 'Inter', sans-serif; 
+          scrollbar-gutter: stable;
+        }
+
+        /* Глобальные стили скроллбара */
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #f8fafc; /* slate-50 */
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #cbd5e1; /* slate-300 */
+          border-radius: 10px;
+          border: 2px solid #f8fafc;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8; /* slate-400 */
+        }
+
+        /* Темная тема для скроллбара (через медиа-запрос или класс dark) */
+        .dark ::-webkit-scrollbar-track {
+            background: #050914; /* new slate-900 */
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #1e293b; /* new slate-700 */
+            border-color: #050914;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #334155; /* new slate-600 */
+        }
+
+        /* Стили для кастомных контейнеров (.custom-scrollbar) */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9; /* slate-100 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e2e8f0; /* slate-200 */
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #FF5B00; /* Фирменный оранжевый при наведении */
+        }
+
+        /* Стили для темной боковой панели */
+        aside::-webkit-scrollbar-track {
+          background: #050914; /* new slate-900 */
+        }
+        aside::-webkit-scrollbar-thumb {
+          background: #1e293b; /* new slate-700 */
+          border-color: #050914;
+        }
+        aside::-webkit-scrollbar-thumb:hover {
+          background: #334155; /* new slate-600 */
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
