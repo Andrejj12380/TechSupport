@@ -126,7 +126,7 @@ const App: React.FC = () => {
       window.history.pushState({ tab: 'clients' }, '', `/clients?client=${result.id}`);
       setActiveTab('clients');
     } else if (result.type === 'Линия') {
-      window.history.pushState({ tab: 'clients' }, '', `/clients?line=${result.id}`);
+      window.history.pushState({ tab: 'clients' }, '', `/clients?client=${result.raw.client_id}&site=${result.raw.site_id}&line=${result.id}`);
       setActiveTab('clients');
     } else if (result.type === 'Оборудование' && result.raw) {
       // For equipment, navigate with client, site, line, and equipment IDs from raw data

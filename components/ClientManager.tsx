@@ -141,11 +141,17 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const [equipSearchResults, setEquipSearchResults] = useState<any[]>([]);
   const [draggedEquipId, setDraggedEquipId] = useState<number | null>(null);
 
-  useEffect(() => { loadClients(); }, []);
+  const [isLoading, setIsLoading] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return !!(params.get('client') || params.get('line'));
+  });
 
-  // Handle URL params for navigation from search results
+  // Combined initialization and navigation
   useEffect(() => {
-    const handleUrlParams = async () => {
+    const init = async () => {
+      const allClients = await api.getClients();
+      setClients(allClients);
+
       const params = new URLSearchParams(window.location.search);
       const clientId = params.get('client');
       const siteId = params.get('site');
@@ -153,54 +159,71 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
       const equipmentId = params.get('equipment');
 
       if (clientId || lineId || equipmentId) {
-        const allClients = await api.getClients();
-        setClients(allClients);
-
-        if (lineId) {
-          const allLines = await api.getAllLines();
-          const targetLine = allLines.find(l => l.id === parseInt(lineId));
-          if (targetLine) {
-            // Find site and client for this line
-            for (const client of allClients) {
-              const siteList = await api.getSites(client.id);
-              const site = siteList.find(s => s.id === targetLine.site_id);
-              if (site) {
-                setSelectedClient(client);
-                setSites(siteList);
-                setSelectedSite(site);
-                const lineList = await api.getLines(site.id);
-                setLines(lineList);
-                setSelectedLine(targetLine);
-                // Load line-specific data
-                setEquipment(await api.getEquipment(targetLine.id));
-                setRemote(await api.getRemoteAccess(targetLine.id));
-                setInstructions(await api.getInstructions(targetLine.id));
-                return;
+        setIsLoading(true); // Ensure loading is shown
+        try {
+          if (lineId) {
+            const allLines = await api.getAllLines();
+            const targetLine = allLines.find(l => l.id === parseInt(lineId));
+            if (targetLine) {
+              for (const client of allClients) {
+                const siteList = await api.getSites(client.id);
+                const site = siteList.find(s => s.id === targetLine.site_id);
+                if (site) {
+                  setSelectedClient(client);
+                  setSites(siteList);
+                  setSelectedSite(site);
+                  const lineList = await api.getLines(site.id);
+                  setLines(lineList);
+                  setSelectedLine(targetLine);
+                  // Load line-specific data
+                  setEquipment(await api.getEquipment(targetLine.id));
+                  setRemote(await api.getRemoteAccess(targetLine.id));
+                  setInstructions(await api.getInstructions(targetLine.id));
+                  setIsLoading(false);
+                  return;
+                }
               }
             }
           }
-        }
 
-        if (clientId) {
-          const targetClient = allClients.find(c => c.id === parseInt(clientId));
-          if (targetClient) {
-            setSelectedClient(targetClient);
-            const siteList = await api.getSites(targetClient.id);
-            setSites(siteList);
+          if (clientId) {
+            const targetClient = allClients.find(c => c.id === parseInt(clientId));
+            if (targetClient) {
+              setSelectedClient(targetClient);
+              const siteList = await api.getSites(targetClient.id);
+              setSites(siteList);
 
-            if (siteId) {
-              const targetSite = siteList.find(s => s.id === parseInt(siteId));
-              if (targetSite) {
-                setSelectedSite(targetSite);
-                setLines(await api.getLines(targetSite.id));
+              if (siteId) {
+                const targetSite = siteList.find(s => s.id === parseInt(siteId));
+                if (targetSite) {
+                  setSelectedSite(targetSite);
+                  const lineList = await api.getLines(targetSite.id);
+                  setLines(lineList);
+
+                  if (lineId) {
+                    const targetLine = lineList.find(l => l.id === parseInt(lineId));
+                    if (targetLine) {
+                      setSelectedLine(targetLine);
+                      setEquipment(await api.getEquipment(targetLine.id));
+                      setRemote(await api.getRemoteAccess(targetLine.id));
+                      setInstructions(await api.getInstructions(targetLine.id));
+                    }
+                  }
+                }
               }
             }
           }
+        } catch (error) {
+          console.error("Navigation error", error);
+        } finally {
+          setIsLoading(false);
         }
+      } else {
+        setIsLoading(false);
       }
     };
 
-    handleUrlParams();
+    init();
   }, []);
 
   const loadClients = async () => setClients(await api.getClients());
@@ -546,6 +569,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
       setIsUploadingDocs(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5B00]"></div>
+        <div className="text-sm text-slate-400 font-medium animate-pulse">Загрузка данных...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-full">
@@ -1254,6 +1286,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Название линии</label>
                   <input name="name" defaultValue={modal.data?.name} required placeholder="Линия розлива B-50" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Номер шкафа управления</label>
+                  <input name="cabinet_number" defaultValue={modal.data?.cabinet_number} placeholder="Напр. ШУ-1" className={inputClass} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Монтажные особенности</label>

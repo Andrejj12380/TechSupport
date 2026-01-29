@@ -468,7 +468,7 @@ app.post('/api/lines', authenticateToken, async (req, res) => {
   try {
     if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
     const {
-      site_id, name, description, mounting_features,
+      site_id, name, description, mounting_features, cabinet_number,
       operational_specifics, tooltip_message, db_ip, db_name, db_user, db_password, db_notes,
       warranty_start_date, paid_support_start_date, paid_support_end_date
     } = req.body;
@@ -483,14 +483,15 @@ app.post('/api/lines', authenticateToken, async (req, res) => {
     const dUser = db_user || null;
     const dPass = db_password || null;
     const dNotes = db_notes || null;
+    const cabNum = cabinet_number || null;
 
     const result = await pool.query(
       `INSERT INTO production_lines 
-       (site_id, name, description, mounting_features, operational_specifics, tooltip_message,
+       (site_id, name, description, mounting_features, cabinet_number, operational_specifics, tooltip_message,
         db_ip, db_name, db_user, db_password, db_notes,
         warranty_start_date, paid_support_start_date, paid_support_end_date) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-      [site_id, name, description, mounting_features, operational_specifics, tMessage,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+      [site_id, name, description, mounting_features, cabNum, operational_specifics, tMessage,
         dIp, dName, dUser, dPass, dNotes,
         wDate, psDate, peDate]
     );
@@ -505,7 +506,7 @@ app.put('/api/lines/:id', authenticateToken, async (req, res) => {
     if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
     const { id } = req.params;
     const {
-      name, description, mounting_features, operational_specifics, tooltip_message,
+      name, description, mounting_features, cabinet_number, operational_specifics, tooltip_message,
       db_ip, db_name, db_user, db_password, db_notes,
       warranty_start_date, paid_support_start_date, paid_support_end_date
     } = req.body;
@@ -520,14 +521,15 @@ app.put('/api/lines/:id', authenticateToken, async (req, res) => {
     const dUser = db_user || null;
     const dPass = db_password || null;
     const dNotes = db_notes || null;
+    const cabNum = cabinet_number || null;
 
     const result = await pool.query(
       `UPDATE production_lines SET 
-       name = $1, description = $2, mounting_features = $3, operational_specifics = $4, tooltip_message = $5,
-       db_ip = $6, db_name = $7, db_user = $8, db_password = $9, db_notes = $10,
-       warranty_start_date = $11, paid_support_start_date = $12, paid_support_end_date = $13,
-       updated_at = CURRENT_TIMESTAMP WHERE id = $14 RETURNING *`,
-      [name, description, mounting_features, operational_specifics, tMessage,
+       name = $1, description = $2, mounting_features = $3, cabinet_number = $4, operational_specifics = $5, tooltip_message = $6,
+       db_ip = $7, db_name = $8, db_user = $9, db_password = $10, db_notes = $11,
+       warranty_start_date = $12, paid_support_start_date = $13, paid_support_end_date = $14,
+       updated_at = CURRENT_TIMESTAMP WHERE id = $15 RETURNING *`,
+      [name, description, mounting_features, cabNum, operational_specifics, tMessage,
         dIp, dName, dUser, dPass, dNotes,
         wDate, psDate, peDate, id]
     );
@@ -580,16 +582,17 @@ app.post('/api/lines/:id/duplicate', authenticateToken, async (req, res) => {
 
     const newLineRes = await client.query(
       `INSERT INTO production_lines
-       (site_id, name, description, mounting_features, operational_specifics, tooltip_message,
+       (site_id, name, description, mounting_features, cabinet_number, operational_specifics, tooltip_message,
         db_ip, db_name, db_user, db_password, db_notes,
         warranty_start_date, paid_support_start_date, paid_support_end_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
       [
         srcLine.site_id,
         newName,
         srcLine.description,
         srcLine.mounting_features,
+        srcLine.cabinet_number || null,
         srcLine.operational_specifics,
         srcLine.tooltip_message || null,
         srcLine.db_ip,
@@ -842,7 +845,7 @@ app.get('/api/search', authenticateToken, async (req, res) => {
     clients.rows.forEach(c => results.push({ type: 'Клиент', name: c.name, id: c.id, raw: c }));
 
     // Production Lines
-    const lines = await pool.query('SELECT pl.*, c.name as client_name FROM production_lines pl JOIN sites s ON pl.site_id = s.id JOIN clients c ON s.client_id = c.id WHERE pl.name ILIKE $1 OR pl.cabinet_number ILIKE $1 ORDER BY pl.name LIMIT 10', [term]);
+    const lines = await pool.query('SELECT pl.*, c.name as client_name, c.id as client_id FROM production_lines pl JOIN sites s ON pl.site_id = s.id JOIN clients c ON s.client_id = c.id WHERE pl.name ILIKE $1 OR pl.cabinet_number ILIKE $1 ORDER BY pl.name LIMIT 10', [term]);
     lines.rows.forEach(l => results.push({ type: 'Линия', name: `${l.name} (${l.client_name})`, id: l.id, raw: l }));
 
     res.json(results);
@@ -1301,21 +1304,25 @@ app.post('/api/tickets/analyze', authenticateToken, async (req, res) => {
     const { description, problem_type } = req.body;
     if (!description) return res.status(400).json({ error: 'Description is required' });
 
+    console.log(`Analyzing ticket: "${description}"`);
+
     // Use pg_trgm similarity to find matches
     // We filter for tickets that have a solution ('solved' or have resolution_details)
     // We return top 3 matches
     const result = await pool.query(
       `SELECT t.id, t.title, t.problem_description, t.resolution_details, t.status,
-              similarity(t.problem_description, $1) as relevance,
+              GREATEST(similarity(t.problem_description, $1), similarity(t.title, $1)) as relevance,
               pl.name as line_name
        FROM support_tickets t
        LEFT JOIN production_lines pl ON t.line_id = pl.id
        WHERE (t.status = 'solved' OR t.resolution_details IS NOT NULL)
-         AND similarity(t.problem_description, $1) > 0.1
+         AND (similarity(t.problem_description, $1) > 0.05 OR similarity(t.title, $1) > 0.05)
        ORDER BY relevance DESC
        LIMIT 3`,
       [description]
     );
+
+    console.log(`Found ${result.rows.length} similar tickets`);
 
     res.json(result.rows);
   } catch (err) {
@@ -1603,6 +1610,15 @@ async function ensureLineCabinetNumber() {
   }
 }
 
+async function ensurePgTrgm() {
+  try {
+    await pool.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+    console.log('Applied migration: enabled pg_trgm extension');
+  } catch (err) {
+    console.error('Error enabling pg_trgm extension:', err);
+  }
+}
+
 async function ensureRemoteAccessEnum() {
   try {
     const res = await pool.query("SELECT enumlabel FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'remote_access_type_enum'");
@@ -1628,6 +1644,7 @@ ensureTicketTimestamps()
   .then(() => ensureLineSupportColumns())
   .then(() => ensureUserPlaintextPassword())
   .then(() => ensureLineCabinetNumber())
+  .then(() => ensurePgTrgm())
   .then(() => ensureRemoteAccessEnum())
   .then(() => {
     app.listen(PORT, () => {
