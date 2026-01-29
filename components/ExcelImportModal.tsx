@@ -210,43 +210,43 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
         }
     };
 
-    const inputClass = "w-full border border-slate-200 rounded-lg px-2 py-1 text-sm outline-none focus:border-[#FF5B00]";
+    const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-[#FF5B00]";
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in duration-150 flex flex-col max-h-[90vh]">
-                <div className="p-5 border-b flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-slate-800">Импорт оборудования</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in duration-150 border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+                <div className="p-5 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100">Импорт оборудования</h3>
+                    <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-2xl leading-none">&times;</button>
                 </div>
 
                 <div className="p-6 flex-1 overflow-y-auto">
                     {error && (
-                        <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-4 text-sm font-medium border border-red-100 flex items-center gap-2">
+                        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl mb-4 text-sm font-medium border border-red-100 dark:border-red-900/30 flex items-center gap-2">
                             <span>⚠️</span> {error}
                         </div>
                     )}
 
                     {step === 1 && (
-                        <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+                        <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                             onClick={() => fileInputRef.current?.click()}>
                             <input type="file" accept=".xlsx, .xls" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-                            <div className="text-4xl mb-4">📊</div>
-                            <p className="font-bold text-slate-700">Загрузите файл спецификации</p>
-                            <p className="text-sm text-slate-400 mt-2">.xlsx, .xls</p>
+                            <div className="text-4xl mb-4 text-slate-400">📊</div>
+                            <p className="font-bold text-slate-700 dark:text-slate-300">Загрузите файл спецификации</p>
+                            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">.xlsx, .xls</p>
                         </div>
                     )}
 
                     {step === 2 && (
                         <div className="space-y-4">
                             <div className="flex justify-between items-center mb-4">
-                                <p className="text-sm text-slate-500">Сопоставьте колонки</p>
-                                <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none">
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Сопоставьте колонки</p>
+                                <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none">
                                     <input
                                         type="checkbox"
                                         checked={hasHeaders}
                                         onChange={toggleHasHeaders}
-                                        className="rounded border-slate-300 text-[#FF5B00] focus:ring-[#FF5B00]"
+                                        className="rounded border-slate-300 dark:border-slate-700 text-[#FF5B00] bg-white dark:bg-slate-800 focus:ring-[#FF5B00]"
                                     />
                                     Первая строка - заголовки
                                 </label>
@@ -254,9 +254,9 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                             <div className="grid gap-3 max-w-md mx-auto">
                                 {mapping.map((m) => (
                                     <div key={m.systemField} className="grid grid-cols-2 gap-4 items-center">
-                                        <div className="text-sm font-medium text-slate-700 text-right">{SYSTEM_FIELDS.find(f => f.key === m.systemField)?.label}</div>
+                                        <div className="text-sm font-medium text-slate-700 dark:text-slate-300 text-right">{SYSTEM_FIELDS.find(f => f.key === m.systemField)?.label}</div>
                                         <select
-                                            className="border border-slate-200 rounded-lg p-2 text-sm bg-white"
+                                            className="border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                                             value={m.excelColumn}
                                             onChange={(e) => handleMappingChange(m.systemField, e.target.value)}
                                         >
@@ -283,14 +283,14 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                                 </div>
                             ) : (
                                 <div className="space-y-2">
-                                    <div className="flex justify-between items-center bg-orange-50 p-3 rounded-lg border border-orange-100">
+                                    <div className="flex justify-between items-center bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-900/30">
                                         <div className="text-xs font-bold text-[#FF5B00] uppercase tracking-wider">Линия: {targetLine?.name}</div>
-                                        <div className="text-xs text-slate-500">К добавлению: <b>{getTotalToImport()} шт.</b></div>
+                                        <div className="text-xs text-slate-500 dark:text-slate-400">К добавлению: <b>{getTotalToImport()} шт.</b></div>
                                     </div>
 
-                                    <div className="bg-white border rounded-xl overflow-hidden shadow-sm max-h-[60vh] overflow-y-auto">
+                                    <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-xl overflow-hidden shadow-sm max-h-[60vh] overflow-y-auto">
                                         <table className="w-full text-left text-sm relative">
-                                            <thead className="bg-slate-50 text-xs font-bold text-slate-500 sticky top-0 shadow-sm z-10">
+                                            <thead className="bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-500 dark:text-slate-400 sticky top-0 shadow-sm z-10">
                                                 <tr>
                                                     <th className="p-3 w-16 text-center">Импорт</th>
                                                     <th className="p-3">Артикул</th>
@@ -299,25 +299,25 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                                                     <th className="p-3 w-24 text-center">Выбрать</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100">
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                                 {mappedData.map((row) => (
-                                                    <tr key={row._originalIdx} className="hover:bg-slate-50 transition-colors">
+                                                    <tr key={row._originalIdx} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                                         <td className="p-3 text-center">
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                className="w-12 text-center border rounded p-1 font-bold text-[#FF5B00]"
+                                                                className="w-12 text-center border dark:border-slate-700 rounded p-1 font-bold text-[#FF5B00] bg-white dark:bg-slate-800"
                                                                 value={importQuantities[row._originalIdx]}
                                                                 onChange={(e) => changeQuantity(row._originalIdx, e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="p-3 font-mono text-xs text-slate-500">{row.article}</td>
-                                                        <td className="p-3 text-slate-700 font-medium">{row.description}</td>
-                                                        <td className="p-3 text-right text-slate-400">{row.quantity_total}</td>
+                                                        <td className="p-3 font-mono text-xs text-slate-500 dark:text-slate-400">{row.article}</td>
+                                                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">{row.description}</td>
+                                                        <td className="p-3 text-right text-slate-400 dark:text-slate-500">{row.quantity_total}</td>
                                                         <td className="p-3 text-center">
                                                             <button
                                                                 onClick={() => setMaxQuantity(row._originalIdx, row.quantity_total)}
-                                                                className="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded text-slate-600"
+                                                                className="text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-400"
                                                             >
                                                                 Макс ({row.quantity_total})
                                                             </button>
@@ -333,7 +333,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                     )}
                 </div>
 
-                <div className="p-5 border-t bg-slate-50 flex justify-end gap-3">
+                <div className="p-5 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
                     {step === 2 && (
                         <button onClick={prepareData} className="bg-[#FF5B00] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#e65200]">
                             К списку →
@@ -343,7 +343,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                         <button
                             onClick={executeImport}
                             disabled={getTotalToImport() === 0}
-                            className={`px-6 py-2 rounded-xl font-bold shadow-lg transition-all ${getTotalToImport() === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-[#FF5B00] text-white hover:bg-[#e65200] shadow-[#FF5B00]/20'}`}
+                            className={`px-6 py-2 rounded-xl font-bold shadow-lg transition-all ${getTotalToImport() === 0 ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-600 cursor-not-allowed shadow-none' : 'bg-[#FF5B00] text-white hover:bg-[#e65200] shadow-[#FF5B00]/20'}`}
                         >
                             Импортировать ({getTotalToImport()})
                         </button>

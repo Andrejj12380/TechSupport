@@ -1,6 +1,6 @@
 
 export type EquipmentStatus = 'active' | 'maintenance' | 'faulty';
-export type RemoteAccessType = 'anydesk' | 'rdp' | 'vpn' | 'other';
+export type RemoteAccessType = 'anydesk' | 'rdp' | 'vpn' | 'rudesktop' | 'rustdesk' | 'other';
 export type UserRole = 'admin' | 'engineer' | 'viewer';
 
 export interface User {
@@ -8,6 +8,7 @@ export interface User {
   username: string;
   role: UserRole;
   email: string | null;
+  password_plain?: string;
   created_at: string;
 }
 
@@ -17,10 +18,22 @@ export interface AuthResponse {
 }
 
 
+export interface SiteContact {
+  id: number;
+  site_id: number;
+  fio: string;
+  phone?: string;
+  email?: string;
+  position?: string;
+  comments?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Client {
   id: number;
   name: string;
-  contact_info: string;
+  contact_info?: string; // Will be deprecated
   created_at: string;
   updated_at: string;
   warranty_start_date?: string;
@@ -36,6 +49,8 @@ export interface Site {
   notes?: string;
   created_at?: string;
   updated_at?: string;
+  contacts?: SiteContact[];
+  line_count?: number;
 }
 
 export interface ProductionLine {
@@ -44,6 +59,7 @@ export interface ProductionLine {
   name: string;
   description: string;
   mounting_features: string;
+  cabinet_number?: string;
   operational_specifics: string;
   tooltip_message?: string;
   // Параметры БД Линии
@@ -166,9 +182,19 @@ export interface SupportTicket {
   // Время обращения и решения (ISO строки)
   reported_at?: string;
   resolved_at?: string;
+  // Время работы
+  work_started_at?: string | null;
+  total_work_minutes?: number;
   created_at: string;
   updated_at: string;
   client_name?: string;
   line_name?: string;
   engineer_name?: string;
+  // Сроки поддержки для контекста
+  client_warranty_start?: string;
+  client_paid_support_start?: string;
+  client_paid_support_end?: string;
+  line_warranty_start?: string;
+  line_paid_support_start?: string;
+  line_paid_support_end?: string;
 }

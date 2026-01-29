@@ -31,6 +31,22 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
+// Auto-migration: Ensure site_contacts table exists
+pool.query(`
+  CREATE TABLE IF NOT EXISTS site_contacts (
+    id SERIAL PRIMARY KEY,
+    site_id INTEGER REFERENCES sites(id) ON DELETE CASCADE,
+    fio TEXT NOT NULL,
+    phone TEXT,
+    email TEXT,
+    position TEXT,
+    comments TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`).then(() => console.log('✓ site_contacts table ensured'))
+  .catch(err => console.error('✗ Failed to ensure site_contacts table:', err));
+
 const JWT_SECRET = process.env.JWT_SECRET || 'techsupport-pro-secret-key-2025';
 
 // Configure Multer for file uploads
@@ -196,7 +212,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // Get all users
 app.get('/api/users', authenticateToken, authorize(['admin']), async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, role, email, created_at, updated_at FROM users ORDER BY username ASC');
+    const result = await pool.query('SELECT id, username, role, email, password_plain, created_at, updated_at FROM users ORDER BY username ASC');
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -210,8 +226,8 @@ app.post('/api/users', authenticateToken, authorize(['admin']), async (req, res)
     const password_hash = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      'INSERT INTO users (username, password_hash, role, email) VALUES ($1, $2, $3, $4) RETURNING id, username, role, email',
-      [username, password_hash, role, email]
+      'INSERT INTO users (username, password_hash, role, email, password_plain) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, role, email, password_plain',
+      [username, password_hash, role, email, password]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -233,11 +249,11 @@ app.put('/api/users/:id', authenticateToken, authorize(['admin']), async (req, r
 
     if (password) {
       const password_hash = await bcrypt.hash(password, 10);
-      query = 'UPDATE users SET username = $1, role = $2, email = $3, password_hash = $5, updated_at = CURRENT_TIMESTAMP';
-      params.push(password_hash);
+      query = 'UPDATE users SET username = $1, role = $2, email = $3, password_hash = $5, password_plain = $6, updated_at = CURRENT_TIMESTAMP';
+      params.push(password_hash, password);
     }
 
-    query += ' WHERE id = $4 RETURNING id, username, role, email';
+    query += ' WHERE id = $4 RETURNING id, username, role, email, password_plain';
 
     const result = await pool.query(query, params);
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
@@ -331,7 +347,10 @@ app.get('/api/sites/:clientId', async (req, res) => {
   try {
     const { clientId } = req.params;
     const result = await pool.query(
-      'SELECT * FROM sites WHERE client_id = $1 ORDER BY name',
+      `SELECT s.*, 
+       (SELECT json_agg(sc ORDER BY sc.created_at) FROM site_contacts sc WHERE sc.site_id = s.id) as contacts,
+       (SELECT COUNT(*)::int FROM production_lines pl WHERE pl.site_id = s.id) as line_count
+       FROM sites s WHERE s.client_id = $1 ORDER BY s.name`,
       [clientId]
     );
     res.json(result.rows);
@@ -379,7 +398,59 @@ app.delete('/api/sites/:id', authenticateToken, authorize(['admin']), async (req
   }
 });
 
+// Site Contacts endpoints
+app.post('/api/sites/:siteId/contacts', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
+    const { siteId } = req.params;
+    const { fio, phone, email, position, comments } = req.body;
+    const result = await pool.query(
+      'INSERT INTO site_contacts (site_id, fio, phone, email, position, comments) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [siteId, fio, phone, email, position, comments]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/site-contacts/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
+    const { id } = req.params;
+    const { fio, phone, email, position, comments } = req.body;
+    const result = await pool.query(
+      'UPDATE site_contacts SET fio = $1, phone = $2, email = $3, position = $4, comments = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
+      [fio, phone, email, position, comments, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/site-contacts/:id', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM site_contacts WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Production Lines endpoints
+
+// Get ALL lines (for dashboard stats)
+app.get('/api/lines/all', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM production_lines ORDER BY name');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/lines/:siteId', async (req, res) => {
   try {
     const { siteId } = req.params;
@@ -758,6 +829,29 @@ app.delete('/api/equipment/:id', authenticateToken, authorize(['admin', 'enginee
   }
 });
 
+// Search endpoint
+app.get('/api/search', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json([]);
+    const term = `%${q}%`;
+    const results = [];
+
+    // Clients
+    const clients = await pool.query('SELECT * FROM clients WHERE name ILIKE $1 ORDER BY name LIMIT 5', [term]);
+    clients.rows.forEach(c => results.push({ type: 'Клиент', name: c.name, id: c.id, raw: c }));
+
+    // Production Lines
+    const lines = await pool.query('SELECT pl.*, c.name as client_name FROM production_lines pl JOIN sites s ON pl.site_id = s.id JOIN clients c ON s.client_id = c.id WHERE pl.name ILIKE $1 OR pl.cabinet_number ILIKE $1 ORDER BY pl.name LIMIT 10', [term]);
+    lines.rows.forEach(l => results.push({ type: 'Линия', name: `${l.name} (${l.client_name})`, id: l.id, raw: l }));
+
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // Remote Access endpoints
 app.get('/api/remote-access/:lineId', async (req, res) => {
   try {
@@ -781,6 +875,32 @@ app.post('/api/remote-access', authenticateToken, async (req, res) => {
       [line_id, type, credentials, url_or_address, notes]
     );
     res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/remote-access/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
+    const { id } = req.params;
+    const { type, credentials, url_or_address, notes } = req.body;
+    const result = await pool.query(
+      'UPDATE remote_access SET type = $1, credentials = $2, url_or_address = $3, notes = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
+      [type, credentials, url_or_address, notes, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/remote-access/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
+    const { id } = req.params;
+    await pool.query('DELETE FROM remote_access WHERE id = $1', [id]);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1209,7 +1329,13 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const { clientId, status, supportLine } = req.query;
     let query = `
-            SELECT t.*, c.name as client_name, pl.name as line_name, u.username as engineer_name
+            SELECT t.*, c.name as client_name, pl.name as line_name, u.username as engineer_name,
+                   c.warranty_start_date as client_warranty_start,
+                   c.paid_support_start_date as client_paid_support_start,
+                   c.paid_support_end_date as client_paid_support_end,
+                   pl.warranty_start_date as line_warranty_start,
+                   pl.paid_support_start_date as line_paid_support_start,
+                   pl.paid_support_end_date as line_paid_support_end
             FROM support_tickets t
             JOIN clients c ON t.client_id = c.id
             LEFT JOIN production_lines pl ON t.line_id = pl.id
@@ -1243,6 +1369,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 
 // Create a ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
+  if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
   const { client_id, line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at } = req.body;
   try {
     // Basic validation
@@ -1318,6 +1445,51 @@ app.delete('/api/tickets/:id', authenticateToken, authorize(['admin']), async (r
   }
 });
 
+// Start work on a ticket
+app.post('/api/tickets/:id/work/start', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `UPDATE support_tickets 
+       SET work_started_at = CURRENT_TIMESTAMP, status = 'in_progress' 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Ticket not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Stop work on a ticket
+app.post('/api/tickets/:id/work/stop', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ticketRes = await pool.query('SELECT work_started_at, total_work_minutes FROM support_tickets WHERE id = $1', [id]);
+    if (ticketRes.rows.length === 0) return res.status(404).json({ error: 'Ticket not found' });
+
+    const ticket = ticketRes.rows[0];
+    if (!ticket.work_started_at) return res.status(400).json({ error: 'Work not started' });
+
+    const start = new Date(ticket.work_started_at);
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    const diffMins = Math.max(1, Math.ceil(diffMs / (1000 * 60))); // Min 1 minute if started
+
+    const result = await pool.query(
+      `UPDATE support_tickets 
+       SET total_work_minutes = COALESCE(total_work_minutes, 0) + $2, 
+           work_started_at = NULL 
+       WHERE id = $1 RETURNING *`,
+      [id, diffMins]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function ensureTicketTimestamps() {
   try {
     const res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'support_tickets' AND column_name IN ('reported_at','resolved_at')");
@@ -1329,6 +1501,12 @@ async function ensureTicketTimestamps() {
     }
     if (!existing.includes('resolved_at')) {
       queries.push("ALTER TABLE support_tickets ADD COLUMN resolved_at TIMESTAMP WITH TIME ZONE");
+    }
+    if (!existing.includes('work_started_at')) {
+      queries.push("ALTER TABLE support_tickets ADD COLUMN work_started_at TIMESTAMP WITH TIME ZONE");
+    }
+    if (!existing.includes('total_work_minutes')) {
+      queries.push("ALTER TABLE support_tickets ADD COLUMN total_work_minutes INTEGER DEFAULT 0");
     }
 
     for (const q of queries) {
@@ -1397,12 +1575,66 @@ async function ensureLineSupportColumns() {
   }
 }
 
-ensureTicketTimestamps().then(() => ensureInstructionsLineFk()).then(() => ensureClientSupportColumns()).then(() => ensureLineSupportColumns()).then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Database: ${process.env.DB_NAME}`);
+async function ensureUserPlaintextPassword() {
+  try {
+    const res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_plain'");
+    if (res.rows.length === 0) {
+      await pool.query("ALTER TABLE users ADD COLUMN password_plain TEXT");
+      console.log('Applied migration: added users.password_plain column');
+    } else {
+      console.log('users.password_plain already exists');
+    }
+  } catch (err) {
+    console.error('Error ensuring users.password_plain column:', err);
+  }
+}
+
+async function ensureLineCabinetNumber() {
+  try {
+    const res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'production_lines' AND column_name = 'cabinet_number'");
+    if (res.rows.length === 0) {
+      await pool.query("ALTER TABLE production_lines ADD COLUMN cabinet_number TEXT");
+      console.log('Applied migration: added production_lines.cabinet_number column');
+    } else {
+      console.log('production_lines.cabinet_number already exists');
+    }
+  } catch (err) {
+    console.error('Error ensuring production_lines.cabinet_number column:', err);
+  }
+}
+
+async function ensureRemoteAccessEnum() {
+  try {
+    const res = await pool.query("SELECT enumlabel FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'remote_access_type_enum'");
+    const existingValues = res.rows.map(r => r.enumlabel);
+
+    if (!existingValues.includes('rudesktop')) {
+      await pool.query("ALTER TYPE remote_access_type_enum ADD VALUE 'rudesktop'");
+      console.log('Applied migration: added rudesktop to remote_access_type_enum');
+    }
+
+    if (!existingValues.includes('rustdesk')) {
+      await pool.query("ALTER TYPE remote_access_type_enum ADD VALUE 'rustdesk'");
+      console.log('Applied migration: added rustdesk to remote_access_type_enum');
+    }
+  } catch (err) {
+    console.error('Error ensuring remote_access_type_enum values:', err);
+  }
+}
+
+ensureTicketTimestamps()
+  .then(() => ensureInstructionsLineFk())
+  .then(() => ensureClientSupportColumns())
+  .then(() => ensureLineSupportColumns())
+  .then(() => ensureUserPlaintextPassword())
+  .then(() => ensureLineCabinetNumber())
+  .then(() => ensureRemoteAccessEnum())
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Database: ${process.env.DB_NAME}`);
+    });
+  }).catch(err => {
+    console.error('Failed to ensure DB schema:', err);
+    process.exit(1);
   });
-}).catch(err => {
-  console.error('Failed to ensure DB schema:', err);
-  process.exit(1);
-});

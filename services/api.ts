@@ -11,7 +11,8 @@ import {
   AuditLog,
   KnowledgeBaseArticle,
   KnowledgeBaseAttachment,
-  SupportTicket
+  SupportTicket,
+  SiteContact
 } from '../types';
 
 class ApiService {
@@ -188,7 +189,21 @@ class ApiService {
   }
 
   async deleteTicket(id: number): Promise<void> {
-    await this.request(`/tickets/${id}`, { method: 'DELETE' });
+    return this.request(`/tickets/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async startTicketWork(id: number): Promise<SupportTicket> {
+    return this.request(`/tickets/${id}/work/start`, {
+      method: 'POST',
+    });
+  }
+
+  async stopTicketWork(id: number): Promise<SupportTicket> {
+    return this.request(`/tickets/${id}/work/stop`, {
+      method: 'POST',
+    });
   }
 
   // Health check
@@ -246,6 +261,27 @@ class ApiService {
     });
   }
 
+  // Site Contacts
+  async addSiteContact(siteId: number, data: Partial<SiteContact>): Promise<SiteContact> {
+    return this.request(`/sites/${siteId}/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSiteContact(id: number, data: Partial<SiteContact>): Promise<SiteContact> {
+    return this.request(`/site-contacts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSiteContact(id: number): Promise<void> {
+    return this.request(`/site-contacts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Production Lines
   async getLines(siteId: number): Promise<ProductionLine[]> {
     return this.request(`/lines/${siteId}`);
@@ -253,6 +289,10 @@ class ApiService {
 
   async getProductionLines(clientId: number): Promise<ProductionLine[]> {
     return this.request(`/clients/${clientId}/lines`);
+  }
+
+  async getAllLines(): Promise<ProductionLine[]> {
+    return this.request('/lines/all');
   }
 
   async duplicateLine(id: number): Promise<ProductionLine> {
@@ -335,6 +375,12 @@ class ApiService {
         body: JSON.stringify(data),
       });
     }
+  }
+
+  async deleteRemoteAccess(id: number) {
+    return this.request(`/remote-access/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Instructions

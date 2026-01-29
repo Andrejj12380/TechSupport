@@ -43,3 +43,8 @@ export const IconUserSettings = ({ className = "w-6 h-6" }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
   </svg>
 );
+export const IconCopy = ({ className = "w-4 h-4" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25a9.06 9.06 0 0 0-1.5-.124m-7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25m-11.25 11.25c.621 0 1.125-.504 1.125-1.125V18.75m0-10.875A1.125 1.125 0 0 1 9 6.75h9.75a1.125 1.125 0 0 1 1.125 1.125v13.5A1.125 1.125 0 0 1 18.75 22.5H9a1.125 1.125 0 0 1-1.125-1.125V18.75m0-10.875A1.125 1.125 0 0 1 9 6.75h9.75a1.125 1.125 0 0 1 1.125 1.125v13.5A1.125 1.125 0 0 1 18.75 22.5H9a1.125 1.125 0 0 1-1.125-1.125V18.75" />
+  </svg>
+);
