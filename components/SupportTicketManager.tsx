@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { SupportTicket, Client, ProductionLine, User, TicketCategory } from '../types';
+import { SupportTicket, Client, ProductionLine, User, TicketCategory, SiteContact } from '../types';
 import {
     Search,
     Plus,
@@ -78,6 +78,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
     const [deletingTicketId, setDeletingTicketId] = useState<number | null>(null);
+    const [availableContacts, setAvailableContacts] = useState<SiteContact[]>([]);
 
     const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -183,12 +184,18 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                 if (client) {
                     const linesData = await api.getProductionLines(clientId);
                     setLines(linesData);
+
+                    // Fetch sites to get contacts for this client
+                    const sitesData = await api.getSites(clientId);
+                    const contacts = sitesData.flatMap(s => s.contacts || []);
+                    setAvailableContacts(contacts);
                 }
             } catch (err) {
-                console.error('Error fetching lines:', err);
+                console.error('Error fetching lines/contacts:', err);
             }
         } else {
             setLines([]);
+            setAvailableContacts([]);
         }
     };
 
@@ -271,6 +278,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         });
         setSelectedTicket(null);
         setLines([]);
+        setAvailableContacts([]);
     };
 
     const openEditModal = async (ticket: SupportTicket) => {
@@ -288,12 +296,16 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             resolved_at: toInputLocal(ticket.resolved_at || '')
         });
 
-        // Fetch lines for the client
+        // Fetch lines and contacts for the client
         try {
             const linesData = await api.getProductionLines(ticket.client_id);
             setLines(linesData);
+
+            const sitesData = await api.getSites(ticket.client_id);
+            const contacts = sitesData.flatMap(s => s.contacts || []);
+            setAvailableContacts(contacts);
         } catch (err) {
-            console.error('Error fetching lines:', err);
+            console.error('Error fetching lines/contacts:', err);
         }
 
         setIsModalOpen(true);
@@ -768,11 +780,17 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         required
                                         disabled={isViewer}
                                         type="text"
+                                        list="contact-suggestions"
                                         value={formData.contact_name}
                                         onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
                                         className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                         placeholder="Имя / Фамилия заявителя"
                                     />
+                                    <datalist id="contact-suggestions">
+                                        {Array.from(new Set(availableContacts.map(c => c.fio))).sort().map(fio => (
+                                            <option key={fio} value={fio} />
+                                        ))}
+                                    </datalist>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Линия техподдержки</label>
