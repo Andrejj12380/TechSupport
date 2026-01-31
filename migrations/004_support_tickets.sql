@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     contact_name VARCHAR(255) NOT NULL,
     problem_description TEXT NOT NULL,
     solution_description TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'solved', 'unsolved')),
+    status VARCHAR(20) NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'solved', 'unsolved', 'on_hold')),
     support_line INTEGER NOT NULL CHECK (support_line IN (1, 2, 3)),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

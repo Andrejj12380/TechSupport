@@ -55,6 +55,98 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+async function ensureTicketCategories() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_categories (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Migration for existing table: add description if missing
+    const descColRes = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'ticket_categories' AND column_name = 'description'");
+    if (descColRes.rows.length === 0) {
+      await pool.query('ALTER TABLE ticket_categories ADD COLUMN description TEXT');
+      console.log('Applied migration: added ticket_categories.description');
+    }
+
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_ticket_categories_active ON ticket_categories(is_active)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_ticket_categories_sort_order ON ticket_categories(sort_order)');
+    // If duplicates already exist with different casing, merge them deterministically:
+    // keep the most recently updated row, re-point tickets, delete the rest.
+    const dupRes = await pool.query(`
+      SELECT LOWER(name) AS name_lc, array_agg(id ORDER BY updated_at DESC, id DESC) AS ids
+      FROM ticket_categories
+      GROUP BY LOWER(name)
+      HAVING COUNT(*) > 1
+    `);
+
+    for (const row of dupRes.rows) {
+      const ids = row.ids || [];
+      const keepId = ids[0];
+      const dropIds = ids.slice(1);
+      if (!keepId || dropIds.length === 0) continue;
+
+      await pool.query(
+        'UPDATE support_tickets SET category_id = $1 WHERE category_id = ANY($2::int[])',
+        [keepId, dropIds]
+      );
+      await pool.query('DELETE FROM ticket_categories WHERE id = ANY($1::int[])', [dropIds]);
+    }
+
+    // Prevent case-variant duplicates (e.g. "Принтер" vs "принтер")
+    // Must run AFTER dedupe, otherwise index creation will fail.
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_categories_name_lower ON ticket_categories (LOWER(name))');
+
+    // Seed defaults ONLY on first run (when table is empty).
+    // This avoids re-creating categories you already edited/renamed.
+    const countRes = await pool.query('SELECT COUNT(*)::int AS cnt FROM ticket_categories');
+    const cnt = countRes.rows[0]?.cnt ?? 0;
+    if (cnt === 0) {
+      await pool.query(
+        `INSERT INTO ticket_categories (name, is_active, sort_order) VALUES
+          ('Принтер', true, 10),
+          ('Аппликатор', true, 20),
+          ('Камера', true, 30),
+          ('Контур', true, 40),
+          ('Кластер', true, 50),
+          ('Не известно', true, 999)
+         ON CONFLICT DO NOTHING`
+      );
+    }
+
+    const colRes = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'support_tickets' AND column_name = 'category_id'");
+    if (colRes.rows.length === 0) {
+      await pool.query('ALTER TABLE support_tickets ADD COLUMN category_id INTEGER');
+      console.log('Applied migration: added support_tickets.category_id');
+    }
+
+    const fkRes = await pool.query("SELECT tc.constraint_name FROM information_schema.table_constraints tc WHERE tc.table_name = 'support_tickets' AND tc.constraint_type = 'FOREIGN KEY' AND tc.constraint_name = 'support_tickets_category_id_fkey'");
+    if (fkRes.rows.length === 0) {
+      await pool.query('ALTER TABLE support_tickets ADD CONSTRAINT support_tickets_category_id_fkey FOREIGN KEY (category_id) REFERENCES ticket_categories(id) ON DELETE SET NULL');
+      console.log('Applied migration: added support_tickets.category_id FK');
+    }
+
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_tickets_category_id ON support_tickets(category_id)');
+
+    const unknownRes = await pool.query("SELECT id FROM ticket_categories WHERE LOWER(name) = LOWER('Не известно') LIMIT 1");
+    const unknownId = unknownRes.rows[0]?.id;
+    if (unknownId) {
+      await pool.query('UPDATE support_tickets SET category_id = $1 WHERE category_id IS NULL', [unknownId]);
+    }
+
+    console.log('Applied migration: ensured ticket categories');
+  } catch (err) {
+    console.error('Error ensuring ticket categories:', err);
+  }
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -129,6 +221,124 @@ app.options('*', cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+app.get('/api/ticket-categories', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, description, is_active, sort_order, created_at, updated_at FROM ticket_categories ORDER BY sort_order ASC, name ASC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching ticket categories:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/ticket-categories', authenticateToken, authorize(['admin']), async (req, res) => {
+  try {
+    const { name, description, is_active, sort_order } = req.body;
+    if (!name || String(name).trim() === '') return res.status(400).json({ error: 'name is required' });
+    const result = await pool.query(
+      `INSERT INTO ticket_categories (name, description, is_active, sort_order)
+       VALUES ($1, $2, COALESCE($3, true), COALESCE($4, 0))
+       RETURNING id, name, description, is_active, sort_order, created_at, updated_at`,
+      [String(name).trim(), description, is_active, sort_order]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating ticket category:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/ticket-categories/:id', authenticateToken, authorize(['admin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, is_active, sort_order } = req.body;
+    if (!name || String(name).trim() === '') return res.status(400).json({ error: 'name is required' });
+    const result = await pool.query(
+      `UPDATE ticket_categories
+       SET name = $1, description = $2, is_active = COALESCE($3, is_active), sort_order = COALESCE($4, sort_order), updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5
+       RETURNING id, name, description, is_active, sort_order, created_at, updated_at`,
+      [String(name).trim(), description, is_active, sort_order, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Category not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating ticket category:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/ticket-categories/:id', authenticateToken, authorize(['admin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usedRes = await pool.query('SELECT 1 FROM support_tickets WHERE category_id = $1 LIMIT 1', [id]);
+    if (usedRes.rows.length > 0) {
+      const result = await pool.query(
+        `UPDATE ticket_categories
+         SET is_active = false, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING id, name, description, is_active, sort_order, created_at, updated_at`,
+        [id]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ error: 'Category not found' });
+      return res.json({ success: true, mode: 'deactivated', category: result.rows[0] });
+    }
+
+    const result = await pool.query('DELETE FROM ticket_categories WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Category not found' });
+    res.json({ success: true, mode: 'deleted' });
+  } catch (err) {
+    console.error('Error deleting ticket category:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/tickets/analytics/categories', authenticateToken, async (req, res) => {
+  try {
+    const { period } = req.query;
+    let interval = null;
+    if (period === '7d') interval = "7 days";
+    else if (period === '30d') interval = "30 days";
+    else if (period === '90d') interval = "90 days";
+    else if (period === '365d') interval = "365 days";
+
+    const filterClause = interval ? `AND t.reported_at >= NOW() - INTERVAL '${interval}'` : '';
+
+    const query = `
+      SELECT c.id as category_id, c.name as category_name, c.description,
+              COUNT(t.id) FILTER (WHERE 1=1 ${filterClause}) as total_tickets,
+              COUNT(t.id) FILTER (WHERE t.status = 'in_progress' ${filterClause}) as open_tickets,
+              COUNT(t.id) FILTER (WHERE t.status = 'on_hold' ${filterClause}) as on_hold_tickets,
+              COUNT(t.id) FILTER (WHERE t.status = 'solved' ${filterClause}) as solved_tickets,
+              COUNT(t.id) FILTER (WHERE t.status = 'unsolved' ${filterClause}) as unsolved_tickets,
+              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
+                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL), 2) as avg_total,
+              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
+                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '7 days'), 2) as avg_7d,
+              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
+                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '30 days'), 2) as avg_30d,
+              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
+                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '90 days'), 2) as avg_90d,
+              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
+                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '365 days'), 2) as avg_365d,
+              COUNT(t.id) FILTER (WHERE t.reported_at >= NOW() - INTERVAL '7 days') as last_7d_tickets
+       FROM ticket_categories c
+       LEFT JOIN support_tickets t ON t.category_id = c.id
+       WHERE c.is_active = true
+       GROUP BY c.id, c.name, c.description
+       ORDER BY total_tickets DESC, c.name ASC
+    `;
+
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching ticket category analytics:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Test database connection
 app.get('/api/health', async (req, res) => {
@@ -362,10 +572,10 @@ app.get('/api/sites/:clientId', async (req, res) => {
 app.post('/api/sites', authenticateToken, async (req, res) => {
   try {
     if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
-    const { client_id, name, address, notes } = req.body;
+    const { client_id, name, address, notes, l3_provider, l3_provider_custom } = req.body;
     const result = await pool.query(
-      'INSERT INTO sites (client_id, name, address, notes) VALUES ($1, $2, $3, $4) RETURNING *',
-      [client_id, name, address, notes]
+      'INSERT INTO sites (client_id, name, address, notes, l3_provider, l3_provider_custom) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [client_id, name, address, notes, l3_provider, l3_provider_custom]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -377,10 +587,10 @@ app.put('/api/sites/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
     const { id } = req.params;
-    const { name, address, notes } = req.body;
+    const { name, address, notes, l3_provider, l3_provider_custom } = req.body;
     const result = await pool.query(
-      'UPDATE sites SET name = $1, address = $2, notes = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-      [name, address, notes, id]
+      'UPDATE sites SET name = $1, address = $2, notes = $3, l3_provider = $4, l3_provider_custom = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
+      [name, address, notes, l3_provider, l3_provider_custom, id]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -444,7 +654,12 @@ app.delete('/api/site-contacts/:id', authenticateToken, authorize(['admin', 'eng
 // Get ALL lines (for dashboard stats)
 app.get('/api/lines/all', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM production_lines ORDER BY name');
+    const result = await pool.query(`
+      SELECT pl.*, s.client_id 
+      FROM production_lines pl
+      JOIN sites s ON pl.site_id = s.id
+      ORDER BY pl.name
+    `);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -841,12 +1056,31 @@ app.get('/api/search', authenticateToken, async (req, res) => {
     const results = [];
 
     // Clients
-    const clients = await pool.query('SELECT * FROM clients WHERE name ILIKE $1 ORDER BY name LIMIT 5', [term]);
+    const clients = await pool.query('SELECT * FROM clients WHERE name ILIKE $1 OR contact_info ILIKE $1 ORDER BY name LIMIT 10', [term]);
     clients.rows.forEach(c => results.push({ type: 'Клиент', name: c.name, id: c.id, raw: c }));
 
     // Production Lines
     const lines = await pool.query('SELECT pl.*, c.name as client_name, c.id as client_id FROM production_lines pl JOIN sites s ON pl.site_id = s.id JOIN clients c ON s.client_id = c.id WHERE pl.name ILIKE $1 OR pl.cabinet_number ILIKE $1 ORDER BY pl.name LIMIT 10', [term]);
     lines.rows.forEach(l => results.push({ type: 'Линия', name: `${l.name} (${l.client_name})`, id: l.id, raw: l }));
+
+    // Equipment
+    const equipment = await pool.query(
+      `SELECT e.*, et.name as type_name, pl.name as line_name, s.name as site_name, c.name as client_name
+       FROM equipment e
+       LEFT JOIN equipment_types et ON e.type_id = et.id
+       LEFT JOIN production_lines pl ON e.line_id = pl.id
+       LEFT JOIN sites s ON pl.site_id = s.id
+       LEFT JOIN clients c ON s.client_id = c.id
+       WHERE e.model ILIKE $1 OR e.article ILIKE $1 OR e.notes ILIKE $1
+       ORDER BY e.model LIMIT 20`,
+      [term]
+    );
+    equipment.rows.forEach(e => results.push({
+      type: 'Оборудование',
+      name: `${e.model} (${e.article})`,
+      id: e.id,
+      raw: e
+    }));
 
     res.json(results);
   } catch (err) {
@@ -1050,49 +1284,6 @@ app.put('/api/remote-access/:id', authenticateToken, async (req, res) => {
       [type, credentials, url_or_address, notes, id]
     );
     res.json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Search endpoint
-app.get('/api/search', async (req, res) => {
-  try {
-    const { q } = req.query;
-    const searchTerm = `%${q}%`;
-
-    const clientsResult = await pool.query(
-      'SELECT * FROM clients WHERE name ILIKE $1 OR contact_info ILIKE $1',
-      [searchTerm]
-    );
-
-    const equipmentResult = await pool.query(
-      `SELECT e.*, et.name as type_name, pl.name as line_name, s.name as site_name, c.name as client_name
-       FROM equipment e
-       LEFT JOIN equipment_types et ON e.type_id = et.id
-       LEFT JOIN production_lines pl ON e.line_id = pl.id
-       LEFT JOIN sites s ON pl.site_id = s.id
-       LEFT JOIN clients c ON s.client_id = c.id
-       WHERE e.model ILIKE $1 OR e.article ILIKE $1 OR e.notes ILIKE $1`,
-      [searchTerm]
-    );
-
-    const results = [
-      ...clientsResult.rows.map(c => ({
-        type: 'Клиент',
-        name: c.name,
-        id: c.id,
-        raw: c
-      })),
-      ...equipmentResult.rows.map(e => ({
-        type: 'Оборудование',
-        name: `${e.model} (${e.article})`,
-        id: e.id,
-        raw: e
-      }))
-    ];
-
-    res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1310,13 +1501,15 @@ app.post('/api/tickets/analyze', authenticateToken, async (req, res) => {
     // We filter for tickets that have a solution ('solved' or have resolution_details)
     // We return top 3 matches
     const result = await pool.query(
-      `SELECT t.id, t.title, t.problem_description, t.resolution_details, t.status,
-              GREATEST(similarity(t.problem_description, $1), similarity(t.title, $1)) as relevance,
+      `SELECT t.id, t.problem_description,
+              COALESCE(t.solution_description, '') as resolution_details,
+              t.status,
+              similarity(t.problem_description, $1) as relevance,
               pl.name as line_name
        FROM support_tickets t
        LEFT JOIN production_lines pl ON t.line_id = pl.id
-       WHERE (t.status = 'solved' OR t.resolution_details IS NOT NULL)
-         AND (similarity(t.problem_description, $1) > 0.05 OR similarity(t.title, $1) > 0.05)
+       WHERE (t.status = 'solved' OR t.solution_description IS NOT NULL)
+         AND similarity(t.problem_description, $1) > 0.05
        ORDER BY relevance DESC
        LIMIT 3`,
       [description]
@@ -1337,6 +1530,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
     const { clientId, status, supportLine } = req.query;
     let query = `
             SELECT t.*, c.name as client_name, pl.name as line_name, u.username as engineer_name,
+                   tc.name as category_name,
                    c.warranty_start_date as client_warranty_start,
                    c.paid_support_start_date as client_paid_support_start,
                    c.paid_support_end_date as client_paid_support_end,
@@ -1346,6 +1540,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
             FROM support_tickets t
             JOIN clients c ON t.client_id = c.id
             LEFT JOIN production_lines pl ON t.line_id = pl.id
+            LEFT JOIN ticket_categories tc ON t.category_id = tc.id
             JOIN users u ON t.user_id = u.id
             WHERE 1=1
         `;
@@ -1377,19 +1572,23 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 // Create a ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
   if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
-  const { client_id, line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at } = req.body;
+  const { client_id, line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id } = req.body;
   try {
     // Basic validation
     if (!client_id) return res.status(400).json({ error: 'client_id is required' });
     if (!contact_name) return res.status(400).json({ error: 'contact_name is required' });
     if (!problem_description) return res.status(400).json({ error: 'problem_description is required' });
 
+    const unknownRes = await pool.query("SELECT id FROM ticket_categories WHERE LOWER(name) = LOWER('Не известно') LIMIT 1");
+    const unknownId = unknownRes.rows[0]?.id || null;
+    const resolvedCategoryId = category_id || unknownId;
+
     const result = await pool.query(
       `INSERT INTO support_tickets 
-            (client_id, line_id, user_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, CURRENT_TIMESTAMP), $10::timestamptz)
+            (client_id, line_id, user_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, CURRENT_TIMESTAMP), $10::timestamptz, $11)
             RETURNING *`,
-      [client_id, line_id, req.user.id, contact_name, problem_description, solution_description, status || 'open', support_line, reported_at || null, resolved_at || null]
+      [client_id, line_id, req.user.id, contact_name, problem_description, solution_description, status || 'in_progress', support_line, reported_at || null, resolved_at || null, resolvedCategoryId]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -1401,7 +1600,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
 // Update a ticket
 app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at } = req.body;
+  const { line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id } = req.body;
   try {
     // Only allow engineer or admin to update
     if (req.user.role === 'viewer') {
@@ -1422,9 +1621,10 @@ app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
       `UPDATE support_tickets 
             SET line_id = $1, contact_name = $2, problem_description = $3, 
                 solution_description = $4, status = $5, support_line = $6, reported_at = $7::timestamptz, resolved_at = $8::timestamptz, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $9
+                , category_id = COALESCE($9, category_id)
+            WHERE id = $10
             RETURNING *`,
-      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, id]
+      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id]
     );
 
     if (result.rows.length === 0) {
@@ -1488,6 +1688,40 @@ app.post('/api/tickets/:id/work/stop', authenticateToken, authorize(['admin', 'e
       `UPDATE support_tickets 
        SET total_work_minutes = COALESCE(total_work_minutes, 0) + $2, 
            work_started_at = NULL 
+       WHERE id = $1 RETURNING *`,
+      [id, diffMins]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pause work on a ticket (stops timer, sets status to on_hold)
+app.post('/api/tickets/:id/work/pause', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ticketRes = await pool.query('SELECT work_started_at, total_work_minutes FROM support_tickets WHERE id = $1', [id]);
+    if (ticketRes.rows.length === 0) return res.status(404).json({ error: 'Ticket not found' });
+
+    const ticket = ticketRes.rows[0];
+    if (!ticket.work_started_at) {
+      // If already paused, just ensure status is on_hold
+      await pool.query("UPDATE support_tickets SET status = 'on_hold' WHERE id = $1", [id]);
+      const updated = await pool.query('SELECT * FROM support_tickets WHERE id = $1', [id]);
+      return res.json(updated.rows[0]);
+    }
+
+    const start = new Date(ticket.work_started_at);
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    const diffMins = Math.max(1, Math.ceil(diffMs / (1000 * 60)));
+
+    const result = await pool.query(
+      `UPDATE support_tickets 
+       SET total_work_minutes = COALESCE(total_work_minutes, 0) + $2, 
+           work_started_at = NULL,
+           status = 'on_hold'
        WHERE id = $1 RETURNING *`,
       [id, diffMins]
     );
@@ -1638,7 +1872,64 @@ async function ensureRemoteAccessEnum() {
   }
 }
 
-ensureTicketTimestamps()
+async function ensureSiteL3Provider() {
+  try {
+    const res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'sites' AND column_name = 'l3_provider'");
+    if (res.rows.length === 0) {
+      await pool.query('ALTER TABLE sites ADD COLUMN l3_provider TEXT');
+      await pool.query('ALTER TABLE sites ADD COLUMN l3_provider_custom TEXT');
+      console.log('Applied migration: added l3_provider columns to sites');
+    }
+  } catch (err) {
+    console.error('Error ensuring site L3 provider columns:', err);
+  }
+}
+
+async function ensureTicketStatusMigration() {
+  try {
+    const res = await pool.query("UPDATE support_tickets SET status = 'in_progress' WHERE status = 'open' RETURNING id");
+    if (res.rowCount > 0) {
+      console.log(`Applied migration: updated ${res.rowCount} 'open' tickets to 'in_progress'`);
+    }
+  } catch (err) {
+    console.error('Error during ticket status migration:', err);
+  }
+}
+
+async function ensureSupportTicketStatusConstraint() {
+  try {
+    // Drop existing constraint if it exists. Postgres usually names it support_tickets_status_check
+    // but it's safer to check the information_schema
+    const checkRes = await pool.query(`
+      SELECT constraint_name 
+      FROM information_schema.constraint_column_usage 
+      WHERE table_name = 'support_tickets' AND column_name = 'status'
+    `);
+
+    for (const row of checkRes.rows) {
+      if (row.constraint_name.includes('status_check')) {
+        await pool.query(`ALTER TABLE support_tickets DROP CONSTRAINT ${row.constraint_name}`);
+        console.log(`Dropped old status constraint: ${row.constraint_name}`);
+      }
+    }
+
+    // Add new constraint including on_hold
+    await pool.query(`
+      ALTER TABLE support_tickets 
+      ADD CONSTRAINT support_tickets_status_check 
+      CHECK (status IN ('in_progress', 'solved', 'unsolved', 'on_hold'))
+    `);
+    console.log('Applied migration: added status check constraint for support_tickets');
+  } catch (err) {
+    // If it already exists with the same name, it might fail, which is fine if we just want it ensured
+    if (!err.message.includes('already exists')) {
+      console.error('Error ensuring support_ticket status constraint:', err);
+    }
+  }
+}
+
+ensureTicketCategories()
+  .then(() => ensureTicketTimestamps())
   .then(() => ensureInstructionsLineFk())
   .then(() => ensureClientSupportColumns())
   .then(() => ensureLineSupportColumns())
@@ -1646,6 +1937,9 @@ ensureTicketTimestamps()
   .then(() => ensureLineCabinetNumber())
   .then(() => ensurePgTrgm())
   .then(() => ensureRemoteAccessEnum())
+  .then(() => ensureSiteL3Provider())
+  .then(() => ensureTicketStatusMigration())
+  .then(() => ensureSupportTicketStatusConstraint())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

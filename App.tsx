@@ -346,7 +346,7 @@ const App: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => setActiveTab(tab)} />}
           {activeTab === 'clients' && <ClientManager user={user} />}
           {activeTab === 'kb' && <KnowledgeBase user={user} />}
           {activeTab === 'tickets' && <SupportTicketManager user={user} />}

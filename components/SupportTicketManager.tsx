@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { SupportTicket, Client, ProductionLine, User } from '../types';
+import { SupportTicket, Client, ProductionLine, User, TicketCategory } from '../types';
 import {
     Search,
     Plus,
@@ -19,7 +19,9 @@ import {
     Check,
     X,
     Play,
-    Square
+    Square,
+    Pause,
+    PauseCircle
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
@@ -75,9 +77,17 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
-    const [suggestions, setSuggestions] = useState<any[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
     const [deletingTicketId, setDeletingTicketId] = useState<number | null>(null);
+
+    const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [editingCategory, setEditingCategory] = useState<TicketCategory | null>(null);
+    const [categoryForm, setCategoryForm] = useState<{ name: string; description: string; sort_order: number; is_active: boolean }>({
+        name: '',
+        description: '',
+        sort_order: 0,
+        is_active: true
+    });
 
     // State for form data
     const [formData, setFormData] = useState<Partial<SupportTicket>>({
@@ -86,32 +96,12 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         contact_name: '',
         problem_description: '',
         solution_description: '',
-        status: 'open',
+        status: 'in_progress',
         support_line: 1,
+        category_id: null,
         reported_at: '',
         resolved_at: ''
     });
-
-    // Debounced search for similar tickets
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (formData.problem_description && formData.problem_description.length > 5) {
-                setIsSearching(true);
-                try {
-                    const results = await api.analyzeTicket(formData.problem_description);
-                    setSuggestions(results);
-                } catch (err) {
-                    console.error('Error analyzing ticket:', err);
-                } finally {
-                    setIsSearching(false);
-                }
-            } else {
-                setSuggestions([]);
-            }
-        }, 800);
-
-        return () => clearTimeout(timer);
-    }, [formData.problem_description]);
 
 
 
@@ -123,10 +113,22 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     const [filterStatus, setFilterStatus] = useState<string>('');
     const [filterClient, setFilterClient] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterReportedFrom, setFilterReportedFrom] = useState<string>('');
+    const [filterReportedTo, setFilterReportedTo] = useState<string>('');
+    const [filterCategory, setFilterCategory] = useState<string>('');
+    const [sortDateMode, setSortDateMode] = useState<'reported_at' | 'created_at'>('reported_at');
 
     useEffect(() => {
         fetchData();
         fetchMetadata();
+        fetchTicketCategories();
+
+        // Handle deep linking for filters
+        const params = new URLSearchParams(window.location.search);
+        const catId = params.get('category');
+        const status = params.get('status');
+        if (catId) setFilterCategory(catId);
+        if (status) setFilterStatus(status);
     }, []);
 
     const fetchData = async () => {
@@ -147,6 +149,15 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             setClients(clientsData);
         } catch (err) {
             console.error('Error fetching metadata:', err);
+        }
+    };
+
+    const fetchTicketCategories = async () => {
+        try {
+            const categories = await api.getTicketCategories();
+            setTicketCategories(categories);
+        } catch (err) {
+            console.error('Error fetching ticket categories:', err);
         }
     };
 
@@ -197,6 +208,10 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             setFormError('Опишите проблему');
             return;
         }
+        if (!formData.category_id) {
+            setFormError('Выберите категорию проблемы');
+            return;
+        }
 
         setIsSaving(true);
         try {
@@ -207,7 +222,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                 client_id: typeof formData.client_id === 'string' ? Number(formData.client_id) : formData.client_id,
                 line_id: formData.line_id ? (typeof formData.line_id === 'string' ? Number(formData.line_id) : formData.line_id) : null,
                 reported_at: toISOStringFromInput(formData.reported_at as string) || undefined,
-                resolved_at: toISOStringFromInput(formData.resolved_at as string) || undefined
+                resolved_at: toISOStringFromInput(formData.resolved_at as string) || undefined,
+                category_id: formData.category_id ? (typeof formData.category_id === 'string' ? Number(formData.category_id) : formData.category_id) : null
             };
 
             if (selectedTicket) {
@@ -240,14 +256,16 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     };
 
     const resetForm = () => {
+        const unknownCategoryId = ticketCategories.find(c => c.name.toLowerCase() === 'не известно')?.id || null;
         setFormData({
             client_id: 0,
             line_id: null,
             contact_name: '',
             problem_description: '',
             solution_description: '',
-            status: 'open',
+            status: 'in_progress',
             support_line: 1,
+            category_id: unknownCategoryId,
             reported_at: '',
             resolved_at: ''
         });
@@ -265,6 +283,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             solution_description: ticket.solution_description || '',
             status: ticket.status,
             support_line: ticket.support_line,
+            category_id: ticket.category_id ?? null,
             reported_at: toInputLocal(ticket.reported_at || ticket.created_at),
             resolved_at: toInputLocal(ticket.resolved_at || '')
         });
@@ -284,6 +303,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         switch (status) {
             case 'solved': return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
             case 'in_progress': return <Clock className="w-5 h-5 text-amber-500" />;
+            case 'on_hold': return <PauseCircle className="w-5 h-5 text-slate-400" />;
             case 'unsolved': return <AlertCircle className="w-5 h-5 text-red-500" />;
             default: return <MessageSquare className="w-5 h-5 text-slate-400" />;
         }
@@ -294,7 +314,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             case 'solved': return 'Решено';
             case 'in_progress': return 'В работе';
             case 'unsolved': return 'Не решено';
-            case 'open': return 'Открыто';
+            case 'on_hold': return 'В ожидании';
             default: return status;
         }
     };
@@ -335,17 +355,90 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         }
     };
 
+    const handlePauseWork = async (ticketId: number) => {
+        try {
+            await api.pauseTicketWork(ticketId);
+            fetchData();
+        } catch (err) {
+            console.error('Error pausing work:', err);
+        }
+    };
+
     const filteredTickets = tickets.filter(t => {
         const matchesStatus = filterStatus ? t.status === filterStatus : true;
         const matchesClient = filterClient ? t.client_id.toString() === filterClient : true;
+        const matchesCategory = filterCategory ? t.category_id?.toString() === filterCategory : true;
         const matchesSearch = t.problem_description.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.client_name?.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesStatus && matchesClient && matchesSearch;
+
+        const reportedDate = new Date((t.reported_at as any) || t.created_at);
+        const fromOk = filterReportedFrom
+            ? reportedDate.getTime() >= new Date(`${filterReportedFrom}T00:00:00`).getTime()
+            : true;
+        const toOk = filterReportedTo
+            ? reportedDate.getTime() <= new Date(`${filterReportedTo}T23:59:59.999`).getTime()
+            : true;
+
+        return matchesStatus && matchesClient && matchesCategory && matchesSearch && fromOk && toOk;
     });
+
+    const sortedTickets = filteredTickets
+        .slice()
+        .sort((a, b) => {
+            const aKey = sortDateMode === 'created_at'
+                ? new Date(a.created_at as any).getTime()
+                : new Date((a.reported_at as any) || a.created_at).getTime();
+            const bKey = sortDateMode === 'created_at'
+                ? new Date(b.created_at as any).getTime()
+                : new Date((b.reported_at as any) || b.created_at).getTime();
+            return bKey - aKey;
+        });
 
     const isAuthorized = user?.role === 'admin' || user?.role === 'engineer';
     const isViewer = user?.role === 'viewer';
+
+    const openCategoryModal = () => {
+        setEditingCategory(null);
+        setCategoryForm({ name: '', description: '', sort_order: 0, is_active: true });
+        setIsCategoryModalOpen(true);
+    };
+
+    const openEditCategoryModal = (cat: TicketCategory) => {
+        setEditingCategory(cat);
+        setCategoryForm({
+            name: cat.name,
+            description: cat.description || '',
+            sort_order: cat.sort_order,
+            is_active: cat.is_active
+        });
+        setIsCategoryModalOpen(true);
+    };
+
+    const saveCategory = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            if (editingCategory) {
+                await api.updateTicketCategory(editingCategory.id, categoryForm);
+            } else {
+                await api.createTicketCategory(categoryForm);
+            }
+            await fetchTicketCategories();
+            setEditingCategory(null);
+            setCategoryForm({ name: '', description: '', sort_order: 0, is_active: true });
+        } catch (err) {
+            console.error('Error saving category:', err);
+        }
+    };
+
+    const deleteCategory = async (id: number) => {
+        try {
+            await api.deleteTicketCategory(id);
+            await fetchTicketCategories();
+        } catch (err) {
+            console.error('Error deleting category:', err);
+        }
+    };
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -370,6 +463,17 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                 )}
             </div>
 
+            {user?.role === 'admin' && (
+                <div className="flex justify-end mb-6">
+                    <button
+                        onClick={openCategoryModal}
+                        className="px-4 py-2 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all"
+                    >
+                        Категории проблем
+                    </button>
+                </div>
+            )}
+
             {/* Filters & Search */}
             <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap items-center gap-4">
                 <div className="relative flex-1 min-w-[300px]">
@@ -383,12 +487,12 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     />
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                     <Filter className="w-5 h-5 text-slate-400 ml-2" />
                     <select
                         value={filterClient}
                         onChange={(e) => setFilterClient(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[180px]"
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[180px] w-full sm:w-auto"
                     >
                         <option value="">Все клиенты</option>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -397,13 +501,49 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px]"
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
                     >
                         <option value="">Все статусы</option>
-                        <option value="open">Открыто</option>
                         <option value="in_progress">В работе</option>
+                        <option value="on_hold">В ожидании</option>
                         <option value="solved">Решено</option>
                         <option value="unsolved">Не решено</option>
+                    </select>
+
+                    <select
+                        value={filterCategory}
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
+                    >
+                        <option value="">Все категории</option>
+                        {ticketCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+
+                    <input
+                        type="date"
+                        value={filterReportedFrom}
+                        onChange={(e) => setFilterReportedFrom(e.target.value)}
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
+                        title="Дата обращения: с"
+                    />
+                    <input
+                        type="date"
+                        value={filterReportedTo}
+                        onChange={(e) => setFilterReportedTo(e.target.value)}
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
+                        title="Дата обращения: по"
+                    />
+
+                    <select
+                        value={sortDateMode}
+                        onChange={(e) => setSortDateMode(e.target.value as any)}
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[220px] w-full sm:w-auto"
+                        title="Сортировка"
+                    >
+                        <option value="reported_at">Сортировать по дате обращения</option>
+                        <option value="created_at">Сортировать по дате добавления</option>
                     </select>
                 </div>
             </div>
@@ -428,7 +568,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         <td colSpan={5} className="px-6 py-8 h-20 bg-slate-50/20"></td>
                                     </tr>
                                 ))
-                            ) : filteredTickets.length === 0 ? (
+                            ) : sortedTickets.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
@@ -439,7 +579,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredTickets.map((ticket) => (
+                            ) : sortedTickets.map((ticket) => (
                                 <tr key={ticket.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
@@ -487,20 +627,30 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                             {isAuthorized && !['paid', 'warranty'].includes(getTicketSupportStatus(ticket).status) && (
                                                 <div className="flex items-center gap-2 border-r border-slate-100 pr-3 mr-1">
                                                     {ticket.work_started_at ? (
-                                                        <button
-                                                            onClick={() => handleStopWork(ticket.id)}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all animate-pulse"
-                                                        >
-                                                            <Square className="w-3 h-3 fill-current" />
-                                                            Стоп
-                                                        </button>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button
+                                                                onClick={() => handleStopWork(ticket.id)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all animate-pulse"
+                                                            >
+                                                                <Square className="w-3 h-3 fill-current" />
+                                                                Стоп
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handlePauseWork(ticket.id)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 transition-all"
+                                                                title="Пауза"
+                                                            >
+                                                                <Pause className="w-3 h-3 fill-current" />
+                                                                Пауза
+                                                            </button>
+                                                        </div>
                                                     ) : (
                                                         <button
                                                             onClick={() => handleStartWork(ticket.id)}
                                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all"
                                                         >
                                                             <Play className="w-3 h-3 fill-current" />
-                                                            Начать
+                                                            {ticket.status === 'on_hold' ? 'Продолжить' : 'Начать'}
                                                         </button>
                                                     )}
                                                     {ticket.total_work_minutes > 0 && (
@@ -589,6 +739,24 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         {lines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                     </select>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Категория проблемы</label>
+                                    <select
+                                        required
+                                        disabled={isViewer}
+                                        value={formData.category_id ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, category_id: e.target.value ? Number(e.target.value) : null })}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                    >
+                                        <option value="">Выберите категорию</option>
+                                        {ticketCategories
+                                            .filter(c => c.is_active || c.id === formData.category_id)
+                                            .sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))
+                                            .map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-6">
@@ -665,63 +833,22 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Решение (если есть)</label>
-                                    <textarea
-                                        disabled={isViewer}
-                                        value={formData.solution_description || ''}
-                                        onChange={(e) => setFormData({ ...formData, solution_description: e.target.value })}
-                                        className={`w-full h-48 px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-3xl outline-none font-medium text-slate-700 transition-all resize-none ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
-                                        placeholder="Опишите принятые меры или итоговое решение..."
-                                    />
-                                </div>
-
-                                {/* Smart Suggestions Sidebar */}
-                                <div className={`space-y-4 border-l pl-6 border-slate-100 ${suggestions.length > 0 ? 'block' : 'hidden md:block'}`}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="p-1.5 bg-blue-50 rounded-lg">
-                                            <Search className="w-4 h-4 text-blue-500" />
-                                        </div>
-                                        <h3 className="text-sm font-black text-slate-800">Похожие решения</h3>
-                                        {isSearching && <span className="text-xs text-slate-400 animate-pulse">Ищем...</span>}
-                                    </div>
-
-                                    <div className="space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                                        {suggestions.length > 0 ? suggestions.map((s, i) => (
-                                            <div key={i} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-all group">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-full">{Math.round(s.relevance * 100)}% совпадение</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setFormData({ ...formData, solution_description: s.resolution_details })}
-                                                        className="text-[10px] font-bold text-slate-400 hover:text-[#FF5B00] uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    >
-                                                        Использовать
-                                                    </button>
-                                                </div>
-                                                <p className="text-xs font-bold text-slate-800 mb-1 line-clamp-2" title={s.problem_description}>{s.problem_description}</p>
-                                                <div className="text-xs text-slate-500 bg-white p-2 rounded-xl border border-slate-100">
-                                                    {s.resolution_details}
-                                                </div>
-                                                <div className="mt-2 text-[10px] text-slate-400 font-medium flex gap-2">
-                                                    <span>{s.line_name}</span>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                            <div className="text-center py-8 text-slate-400 text-xs font-medium">
-                                                {formData.problem_description?.length > 5 ? 'Похожих решений не найдено' : 'Начните описывать проблему, чтобы увидеть подсказки'}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Решение (если есть)</label>
+                                <textarea
+                                    disabled={isViewer}
+                                    value={formData.solution_description || ''}
+                                    onChange={(e) => setFormData({ ...formData, solution_description: e.target.value })}
+                                    className={`w-full h-48 px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-3xl outline-none font-medium text-slate-700 transition-all resize-none ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    placeholder="Опишите принятые меры или итоговое решение..."
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-6 pt-2">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Статус</label>
                                     <div className="flex flex-wrap gap-2">
-                                        {['open', 'in_progress', 'solved', 'unsolved'].map(s => (
+                                        {['in_progress', 'solved', 'unsolved', 'on_hold'].map(s => (
                                             <button
                                                 key={s}
                                                 type="button"
@@ -730,7 +857,11 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                 className={`
                                                         px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
                                                         ${formData.status === s
-                                                        ? (s === 'solved' ? 'bg-emerald-500 text-white' : s === 'in_progress' ? 'bg-amber-500 text-white' : s === 'unsolved' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white')
+                                                        ? (s === 'solved' ? 'bg-emerald-500 text-white' :
+                                                            s === 'in_progress' ? 'bg-amber-500 text-white' :
+                                                                s === 'unsolved' ? 'bg-red-500 text-white' :
+                                                                    s === 'on_hold' ? 'bg-slate-500 text-white' :
+                                                                        'bg-blue-500 text-white')
                                                         : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}
                                                         ${isViewer ? 'cursor-not-allowed' : ''}
                                                     `}
@@ -794,6 +925,126 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                             >
                                 Удалить
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isCategoryModalOpen && user?.role === 'admin' && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden border border-slate-100">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <h3 className="text-xl font-black text-slate-900">Категории проблем</h3>
+                            <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                <X size={22} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
+                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                                <form onSubmit={saveCategory} className="space-y-3">
+                                    <div className="text-sm font-black text-slate-900">
+                                        {editingCategory ? 'Редактирование' : 'Новая категория'}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={categoryForm.name}
+                                        onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700"
+                                        placeholder="Название"
+                                        required
+                                    />
+                                    <textarea
+                                        value={categoryForm.description}
+                                        onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 min-h-[80px]"
+                                        placeholder="Описание (пояснение)"
+                                    />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase ml-1">Порядок</div>
+                                            <input
+                                                type="number"
+                                                value={categoryForm.sort_order}
+                                                onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: Number(e.target.value) })}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700"
+                                                placeholder="Порядок"
+                                            />
+                                        </div>
+                                        <div className="flex items-end pb-3">
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-600 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={categoryForm.is_active}
+                                                    onChange={(e) => setCategoryForm({ ...categoryForm, is_active: e.target.checked })}
+                                                    className="w-4 h-4 rounded border-slate-300 text-[#FF5B00] focus:ring-[#FF5B00]"
+                                                />
+                                                Активна
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 rounded-xl bg-[#FF5B00] text-white font-black hover:bg-[#e65200] transition-all"
+                                        >
+                                            Сохранить
+                                        </button>
+                                        {editingCategory && (
+                                            <button
+                                                type="button"
+                                                onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', description: '', sort_order: 0, is_active: true }); }}
+                                                className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 font-black hover:bg-slate-50"
+                                            >
+                                                Отмена
+                                            </button>
+                                        )}
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                                <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 border-b border-slate-100">
+                                            <tr className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                                                <th className="px-4 py-3">Категория</th>
+                                                <th className="px-4 py-3">Порядок</th>
+                                                <th className="px-4 py-3">Активна</th>
+                                                <th className="px-4 py-3 text-right">Действия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {ticketCategories
+                                                .slice()
+                                                .sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))
+                                                .map(c => (
+                                                    <tr key={c.id} className="text-sm">
+                                                        <td className="px-4 py-3 font-bold text-slate-800">{c.name}</td>
+                                                        <td className="px-4 py-3 text-slate-500">{c.sort_order}</td>
+                                                        <td className="px-4 py-3 text-slate-500">{c.is_active ? 'Да' : 'Нет'}</td>
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                            <div className="inline-flex gap-2">
+                                                                <button
+                                                                    onClick={() => openEditCategoryModal(c)}
+                                                                    className="px-3 py-1.5 rounded-lg text-slate-600 bg-slate-50 hover:bg-slate-100 font-bold"
+                                                                >
+                                                                    Редактировать
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteCategory(c.id)}
+                                                                    className="px-3 py-1.5 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 font-bold"
+                                                                >
+                                                                    Удалить
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

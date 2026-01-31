@@ -12,7 +12,8 @@ import {
   KnowledgeBaseArticle,
   KnowledgeBaseAttachment,
   SupportTicket,
-  SiteContact
+  SiteContact,
+  TicketCategory
 } from '../types';
 
 class ApiService {
@@ -204,6 +205,41 @@ class ApiService {
     return this.request(`/tickets/${id}/work/stop`, {
       method: 'POST',
     });
+  }
+
+  async pauseTicketWork(id: number): Promise<SupportTicket> {
+    return this.request(`/tickets/${id}/work/pause`, {
+      method: 'POST',
+    });
+  }
+
+  async getTicketCategories(): Promise<TicketCategory[]> {
+    return this.request('/ticket-categories');
+  }
+
+  async createTicketCategory(data: Partial<TicketCategory>): Promise<TicketCategory> {
+    return this.request('/ticket-categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTicketCategory(id: number, data: Partial<TicketCategory>): Promise<TicketCategory> {
+    return this.request(`/ticket-categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTicketCategory(id: number): Promise<any> {
+    return this.request(`/ticket-categories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getTicketCategoryAnalytics(period?: string): Promise<any[]> {
+    const url = period ? `/tickets/analytics/categories?period=${period}` : '/tickets/analytics/categories';
+    return this.request(url);
   }
 
   // Health check

@@ -51,11 +51,14 @@ export interface Site {
   updated_at?: string;
   contacts?: SiteContact[];
   line_count?: number;
+  l3_provider?: string;
+  l3_provider_custom?: string;
 }
 
 export interface ProductionLine {
   id: number;
   site_id: number;
+  client_id?: number;
   name: string;
   description: string;
   mounting_features: string;
@@ -169,6 +172,16 @@ export interface KnowledgeBaseArticle {
   attachments?: KnowledgeBaseAttachment[];
 }
 
+export interface TicketCategory {
+  id: number;
+  name: string;
+  description?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SupportTicket {
   id: number;
   client_id: number;
@@ -177,8 +190,9 @@ export interface SupportTicket {
   contact_name: string;
   problem_description: string;
   solution_description: string | null;
-  status: 'open' | 'in_progress' | 'solved' | 'unsolved';
+  status: 'in_progress' | 'solved' | 'unsolved' | 'on_hold';
   support_line: 1 | 2 | 3;
+  category_id?: number | null;
   // Время обращения и решения (ISO строки)
   reported_at?: string;
   resolved_at?: string;
@@ -190,6 +204,7 @@ export interface SupportTicket {
   client_name?: string;
   line_name?: string;
   engineer_name?: string;
+  category_name?: string;
   // Сроки поддержки для контекста
   client_warranty_start?: string;
   client_paid_support_start?: string;

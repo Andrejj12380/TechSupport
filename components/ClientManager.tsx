@@ -130,6 +130,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [remote, setRemote] = useState<RemoteAccess[]>([]);
   const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [allLines, setAllLines] = useState<ProductionLine[]>([]);
   const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [dragActiveDocs, setDragActiveDocs] = useState(false);
@@ -140,6 +141,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const [equipSearchQuery, setEquipSearchQuery] = useState('');
   const [equipSearchResults, setEquipSearchResults] = useState<any[]>([]);
   const [draggedEquipId, setDraggedEquipId] = useState<number | null>(null);
+  const [l3Provider, setL3Provider] = useState<string>('');
+  const [supportFilter, setSupportFilter] = useState<'all' | 'active' | 'expired'>('all');
 
   const [isLoading, setIsLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -149,14 +152,22 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   // Combined initialization and navigation
   useEffect(() => {
     const init = async () => {
-      const allClients = await api.getClients();
+      const [allClients, allLinesData] = await Promise.all([
+        api.getClients(),
+        api.getAllLines()
+      ]);
       setClients(allClients);
+      setAllLines(allLinesData);
 
       const params = new URLSearchParams(window.location.search);
       const clientId = params.get('client');
       const siteId = params.get('site');
       const lineId = params.get('line');
       const equipmentId = params.get('equipment');
+      const support = params.get('support');
+
+      if (support === 'active') setSupportFilter('active');
+      else if (support === 'expired') setSupportFilter('expired');
 
       if (clientId || lineId || equipmentId) {
         setIsLoading(true); // Ensure loading is shown
@@ -588,8 +599,37 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
           {!isViewer && <button onClick={() => setModal({ type: 'client', data: null })} className="w-6 h-6 bg-[#FF5B00] text-white rounded-lg flex items-center justify-center hover:bg-[#e65200] shadow-md shadow-[#FF5B00]/10 transition-all text-lg font-bold">+</button>}
         </div>
 
+        <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl mb-4 text-center">
+          {[
+            { id: 'all', label: 'Все' },
+            { id: 'active', label: 'Активная' },
+            { id: 'expired', label: 'Истекла' },
+          ].map(p => (
+            <button
+              key={p.id}
+              onClick={() => setSupportFilter(p.id as any)}
+              className={`flex-1 py-1 px-2 text-[10px] font-bold rounded-lg transition-all ${supportFilter === p.id ? 'bg-white dark:bg-slate-600 text-[#FF5B00] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-1 flex-1">
-          {clients.map(c => (
+          {clients.filter(c => {
+            if (supportFilter === 'all') return true;
+            const clientLines = allLines.filter(l => l.client_id === c.id);
+            if (supportFilter === 'active') {
+              return clientLines.some(l => {
+                const s = getLineStatus(l);
+                return s.status === 'paid' || s.status === 'warranty';
+              });
+            }
+            if (supportFilter === 'expired') {
+              return clientLines.some(l => getLineStatus(l).status === 'expired');
+            }
+            return true;
+          }).map(c => (
             <div key={c.id} className="group/item">
               <div className={`flex items-center rounded-lg transition-all ${selectedClient?.id === c.id ? 'bg-orange-50/50 dark:bg-orange-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
                 <button
@@ -611,7 +651,21 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
               {selectedClient?.id === c.id && (
                 <div className="ml-4 mt-1 space-y-0.5 border-l-2 pl-2 border-slate-100 dark:border-slate-700">
-                  {sites.map(s => (
+                  {sites.filter(s => {
+                    if (supportFilter === 'all') return true;
+                    // Check if any line in this site matches the filter
+                    const siteLines = allLines.filter(l => l.site_id === s.id);
+                    if (supportFilter === 'active') {
+                      return siteLines.some(l => {
+                        const st = getLineStatus(l);
+                        return st.status === 'paid' || st.status === 'warranty';
+                      });
+                    }
+                    if (supportFilter === 'expired') {
+                      return siteLines.some(l => getLineStatus(l).status === 'expired');
+                    }
+                    return true;
+                  }).map(s => (
                     <div key={s.id} className="group/site">
                       <div className={`flex items-center rounded ${selectedSite?.id === s.id ? 'bg-slate-100 dark:bg-slate-700' : ''}`}>
                         <button
@@ -631,7 +685,17 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
                       {selectedSite?.id === s.id && (
                         <div className="ml-3 mt-1 space-y-0.5 border-l pl-2 border-slate-200 dark:border-slate-600">
-                          {lines.map(l => (
+                          {lines.filter(l => {
+                            if (supportFilter === 'all') return true;
+                            const st = getLineStatus(l);
+                            if (supportFilter === 'active') {
+                              return st.status === 'paid' || st.status === 'warranty';
+                            }
+                            if (supportFilter === 'expired') {
+                              return st.status === 'expired';
+                            }
+                            return true;
+                          }).map(l => (
                             <div key={l.id} className="group/line flex items-center pr-1">
                               <button
                                 onClick={() => handleLineSelect(l)}
@@ -691,9 +755,18 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 dark:bg-slate-800/50 rounded-bl-full -mr-16 -mt-16"></div>
                 <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00] mb-4 relative z-10">Информация о площадке</h3>
                 <div className="space-y-4 relative z-10">
-                  <div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Адрес</div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300">{selectedSite.address || 'Не указано'}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Адрес</div>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">{selectedSite.address || 'Не указано'}</p>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">L3 Маркировка</div>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-100 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-[#FF5B00] rounded-full"></span>
+                        {selectedSite.l3_provider === 'Другое' ? selectedSite.l3_provider_custom : (selectedSite.l3_provider || 'Не указано')}
+                      </p>
+                    </div>
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Комментарии</div>
@@ -1262,6 +1335,35 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Адрес</label>
                 <input name="address" defaultValue={modal.data?.address} placeholder="Фактический адрес объекта" className={inputClass} />
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Реализация L3</label>
+                  <select
+                    name="l3_provider"
+                    className={inputClass}
+                    defaultValue={modal.data?.l3_provider || ''}
+                    onChange={(e) => setL3Provider(e.target.value)}
+                  >
+                    <option value="">Не выбрано</option>
+                    <option value="Контур">Контур</option>
+                    <option value="IT Кластер">IT Кластер</option>
+                    <option value="Мотрум">Мотрум</option>
+                    <option value="Другое">Другое (указать вручную)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Название компании (если Другое)</label>
+                  <input
+                    name="l3_provider_custom"
+                    defaultValue={modal.data?.l3_provider_custom}
+                    placeholder="Укажите компанию..."
+                    disabled={l3Provider !== 'Другое' && modal.data?.l3_provider !== 'Другое'}
+                    className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-400 opacity-60 disabled:opacity-30`}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Комментарии</label>
                 <textarea name="notes" defaultValue={modal.data?.notes} placeholder="Дополнительная информация о площадке..." className={inputClass} style={{ minHeight: '80px' }} />
