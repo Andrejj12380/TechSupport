@@ -6,6 +6,7 @@ import UserManager from './components/UserManager';
 import KnowledgeBase from './components/KnowledgeBase';
 import SupportTicketManager from './components/SupportTicketManager';
 import UserAvatar from './components/UserAvatar';
+import { ToastProvider } from './components/Toast';
 import { IconDashboard, IconUsers, IconSearch, IconLogs, IconBook, IconUserSettings } from './components/Icons';
 import { MessageSquare, Moon, Sun, Menu, X, ChevronRight } from 'lucide-react';
 import { AuditLog, User } from './types';
@@ -68,7 +69,11 @@ const App: React.FC = () => {
     };
 
     const initTab = getTabFromLocation();
-    setActiveTab(initTab);
+    if (initTab === 'logs' && user && user.role !== 'admin') {
+      setActiveTab('dashboard');
+    } else {
+      setActiveTab(initTab);
+    }
 
     // If pathname is /search and q param exists, set searchQuery and run search
     if (window.location.pathname.replace(/^\/+|\/+$/g, '') === 'search') {
@@ -156,257 +161,312 @@ const App: React.FC = () => {
   }
 
   if (!user) {
-    return <Login onLoginSuccess={() => api.getCurrentUser().then(setUser)} />;
+    return <ToastProvider><Login onLoginSuccess={() => api.getCurrentUser().then(setUser)} /></ToastProvider>;
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 relative">
-      {/* Mobile Backdrop */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+    <ToastProvider>
+      <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 relative">
+        {/* Mobile Backdrop */}
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
-      <aside className={`
+        {/* Sidebar */}
+        <aside className={`
         fixed md:static inset-y-0 left-0 ${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 dark:bg-slate-800 text-slate-300 flex flex-col z-50 
         transition-all duration-300 ease-in-out md:translate-x-0
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-6 flex items-center relative">
-          <div className="w-10 h-10 bg-[#FF5B00] rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-[#FF5B00]/20 text-lg shrink-0">TS</div>
-          <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap text-xl font-bold text-white tracking-tight ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-            Support <span className="text-[#FF5B00]">Motrum</span>
-          </span>
+          <div className="p-6 flex items-center relative">
+            <div className="w-10 h-10 bg-[#FF5B00] rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-[#FF5B00]/20 text-lg shrink-0">TS</div>
+            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap text-xl font-bold text-white tracking-tight ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+              Support <span className="text-[#FF5B00]">Motrum</span>
+            </span>
 
-          {/* Toggle Sidebar Button (Desktop only, floating overlay) */}
-          <button
-            onClick={toggleSidebar}
-            className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 rounded-full items-center justify-center text-slate-400 hover:text-white hover:bg-[#FF5B00] transition-all shadow-md z-50"
-            title={isSidebarCollapsed ? "Развернуть" : "Свернуть"}
-          >
-            <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-0' : 'rotate-180'}`} />
-          </button>
-        </div>
+            {/* Toggle Sidebar Button (Desktop only, floating overlay) */}
+            <button
+              onClick={toggleSidebar}
+              className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 rounded-full items-center justify-center text-slate-400 hover:text-white hover:bg-[#FF5B00] transition-all shadow-md z-50"
+              title={isSidebarCollapsed ? "Развернуть" : "Свернуть"}
+            >
+              <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-0' : 'rotate-180'}`} />
+            </button>
+          </div>
 
-        <nav className="flex-1 mt-6 px-4 space-y-1">
-          <button
-            onClick={() => {
-              window.history.pushState({ tab: 'dashboard' }, '', '/');
-              setActiveTab('dashboard');
-              setIsMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
-            title={isSidebarCollapsed ? "Дашборд" : ""}
-          >
-            <IconDashboard className={`w-5 h-5 shrink-0 ${activeTab === 'dashboard' ? 'text-[#FF5B00]' : ''}`} />
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              Дашборд
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              window.history.pushState({ tab: 'clients' }, '', '/clients');
-              setActiveTab('clients');
-              setIsMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${activeTab === 'clients' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
-            title={isSidebarCollapsed ? "Клиенты и Объекты" : ""}
-          >
-            <IconUsers className={`w-5 h-5 shrink-0 ${activeTab === 'clients' ? 'text-[#FF5B00]' : ''}`} />
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              Клиенты и Объекты
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              window.history.pushState({ tab: 'kb' }, '', '/kb');
-              setActiveTab('kb');
-              setIsMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${activeTab === 'kb' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
-            title={isSidebarCollapsed ? "База Знаний" : ""}
-          >
-            <IconBook className={`w-5 h-5 shrink-0 ${activeTab === 'kb' ? 'text-[#FF5B00]' : ''}`} />
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              База Знаний
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              loadLogs();
-              window.history.pushState({ tab: 'logs' }, '', '/logs');
-              setIsMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${activeTab === 'logs' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
-            title={isSidebarCollapsed ? "Журнал действий" : ""}
-          >
-            <IconLogs className={`w-5 h-5 shrink-0 ${activeTab === 'logs' ? 'text-[#FF5B00]' : ''}`} />
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              Журнал действий
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              window.history.pushState({ tab: 'tickets' }, '', '/tickets');
-              setActiveTab('tickets');
-              setIsMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${activeTab === 'tickets' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
-            title={isSidebarCollapsed ? "Журнал обращений" : ""}
-          >
-            <MessageSquare className={`w-5 h-5 shrink-0 ${activeTab === 'tickets' ? 'text-[#FF5B00]' : ''}`} />
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              Журнал обращений
-            </span>
-          </button>
-          {user.role === 'admin' && (
+          <nav className="flex-1 mt-6 px-4 space-y-1">
             <button
               onClick={() => {
-                window.history.pushState({ tab: 'users' }, '', '/users');
-                setActiveTab('users');
+                window.history.pushState({ tab: 'dashboard' }, '', '/');
+                setActiveTab('dashboard');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${activeTab === 'users' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
-              title={isSidebarCollapsed ? "Пользователи" : ""}
+              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'dashboard' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
             >
-              <IconUserSettings className={`w-5 h-5 shrink-0 ${activeTab === 'users' ? 'text-[#FF5B00]' : ''}`} />
+              <IconDashboard className={`w-5 h-5 shrink-0 ${activeTab === 'dashboard' ? 'text-[#FF5B00]' : ''}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-                Пользователи
+                Дашборд
               </span>
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  Дашборд
+                </div>
+              )}
             </button>
-          )}
-        </nav>
-
-        <div className="mt-auto p-4 border-t border-slate-800 space-y-4">
-          {/* User Block (Toggle + Info + Avatar) */}
-          <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between gap-2'} px-2 overflow-hidden min-h-[48px] transition-all duration-300`}>
-            {/* Theme Toggle */}
             <button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors shrink-0 border border-slate-700/50"
-              title={isDarkMode ? 'Светлая тема' : 'Темная тема'}
+              onClick={() => {
+                window.history.pushState({ tab: 'clients' }, '', '/clients');
+                setActiveTab('clients');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'clients' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
             >
-              {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-slate-400" />}
+              <IconUsers className={`w-5 h-5 shrink-0 ${activeTab === 'clients' ? 'text-[#FF5B00]' : ''}`} />
+              <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                Клиенты и Объекты
+              </span>
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  Клиенты и Объекты
+                </div>
+              )}
             </button>
-
-            {/* User Info (Smooth collapse) */}
-            <div className={`flex-1 transition-all duration-300 overflow-hidden whitespace-nowrap flex flex-col ${isSidebarCollapsed ? 'max-w-0 opacity-0 h-0' : 'max-w-[200px] opacity-100'}`}>
-              <div className="text-sm font-bold text-white truncate px-1">{user.username}</div>
-              <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest px-1">Роль: {user.role}</div>
-            </div>
-
-            {/* Avatar */}
-            <div className={`shrink-0 transition-transform duration-300 ${isSidebarCollapsed ? 'scale-90' : ''}`}>
-              <UserAvatar username={user.username} size="md" />
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center px-4 py-2 rounded-lg text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition-all text-sm font-medium`}
-            title={isSidebarCollapsed ? "Выход" : ""}
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              Выход
-            </span>
-          </button>
-
-        </div>
-      </aside>
-
-      {/* Main Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <header className="h-16 bg-white dark:bg-[#18181b] border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 px-4 md:px-6 sticky top-0 z-10 transition-colors">
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
-          >
-            <Menu className="w-6 h-6 text-slate-600 dark:text-slate-400" />
-          </button>
-
-          <form onSubmit={handleSearch} className="flex-1 max-w-lg relative group">
-            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FF5B00] transition-colors" />
-            <input
-              type="text"
-              placeholder="Поиск..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] transition-all text-slate-900 dark:text-slate-100"
-            />
-          </form>
-
-          <div className="flex items-center gap-4 ml-4">
-            {/* Header is now clean - only search and maybe some global actions here if needed */}
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => setActiveTab(tab)} />}
-          {activeTab === 'clients' && <ClientManager user={user} />}
-          {activeTab === 'kb' && <KnowledgeBase user={user} />}
-          {activeTab === 'tickets' && <SupportTicketManager user={user} />}
-          {activeTab === 'users' && user.role === 'admin' && <UserManager currentUser={user} />}
-          {activeTab === 'logs' && (
-            <div className="space-y-4">
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Логи аудита</h1>
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-                    <tr className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold tracking-wider">
-                      <th className="px-6 py-4">Дата/Время</th>
-                      <th className="px-6 py-4">Пользователь</th>
-                      <th className="px-6 py-4">Действие</th>
-                      <th className="px-6 py-4">Сущность</th>
-                      <th className="px-6 py-4">Детали</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {logs.map(log => (
-                      <tr key={log.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{log.timestamp}</td>
-                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{log.user}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${log.action === 'CREATE' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-orange-50 dark:bg-orange-900/20 text-[#FF5B00]'
-                            } `}>{log.action}</span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">{log.entity}</td>
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{log.details}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {activeTab === 'search' && (
-            <div className="space-y-6">
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Результаты поиска: "{searchQuery}"</h1>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {searchResults.length > 0 ? searchResults.map((res, i) => (
-                  <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-bold text-[#FF5B00] uppercase tracking-widest">{res.type}</p>
-                      <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{res.name}</p>
-                    </div>
-                    <button onClick={() => handleSearchNavigate(res)} className="text-sm text-[#FF5B00] font-medium hover:underline">Перейти &rarr;</button>
-                  </div>
-                )) : (
-                  <div className="col-span-full py-12 text-center text-slate-400 dark:text-slate-500">
-                    <IconSearch className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                    Ничего не найдено
+            <button
+              onClick={() => {
+                window.history.pushState({ tab: 'kb' }, '', '/kb');
+                setActiveTab('kb');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'kb' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+            >
+              <IconBook className={`w-5 h-5 shrink-0 ${activeTab === 'kb' ? 'text-[#FF5B00]' : ''}`} />
+              <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                База Знаний
+              </span>
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  База Знаний
+                </div>
+              )}
+            </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={() => {
+                  loadLogs();
+                  window.history.pushState({ tab: 'logs' }, '', '/logs');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'logs' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              >
+                <IconLogs className={`w-5 h-5 shrink-0 ${activeTab === 'logs' ? 'text-[#FF5B00]' : ''}`} />
+                <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                  Журнал действий
+                </span>
+                {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                    Журнал действий
                   </div>
                 )}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                window.history.pushState({ tab: 'tickets' }, '', '/tickets');
+                setActiveTab('tickets');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'tickets' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+            >
+              <MessageSquare className={`w-5 h-5 shrink-0 ${activeTab === 'tickets' ? 'text-[#FF5B00]' : ''}`} />
+              <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                Журнал обращений
+              </span>
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  Журнал обращений
+                </div>
+              )}
+            </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={() => {
+                  window.history.pushState({ tab: 'users' }, '', '/users');
+                  setActiveTab('users');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'users' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              >
+                <IconUserSettings className={`w-5 h-5 shrink-0 ${activeTab === 'users' ? 'text-[#FF5B00]' : ''}`} />
+                <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                  Пользователи
+                </span>
+                {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                    Пользователи
+                  </div>
+                )}
+              </button>
+            )}
+          </nav>
+
+          <div className="mt-auto p-4 border-t border-slate-800 space-y-4">
+            {/* User Block (Toggle + Info + Avatar) */}
+            <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between gap-2'} px-2 overflow-hidden min-h-[48px] transition-all duration-300`}>
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors shrink-0 border border-slate-700/50"
+                title={isDarkMode ? 'Светлая тема' : 'Темная тема'}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-slate-400" />}
+              </button>
+
+              {/* User Info (Smooth collapse) */}
+              <div className={`flex-1 transition-all duration-300 overflow-hidden whitespace-nowrap flex flex-col ${isSidebarCollapsed ? 'max-w-0 opacity-0 h-0' : 'max-w-[200px] opacity-100'}`}>
+                <div className="text-sm font-bold text-white truncate px-1">{user.username}</div>
+                <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest px-1">Роль: {user.role}</div>
+              </div>
+
+              {/* Avatar */}
+              <div className={`shrink-0 transition-transform duration-300 ${isSidebarCollapsed ? 'scale-90' : ''}`}>
+                <UserAvatar username={user.username} size="md" />
               </div>
             </div>
-          )}
-        </main>
+            <button
+              onClick={handleLogout}
+              className={`w-full flex items-center px-4 py-2 rounded-lg text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition-all text-sm font-medium`}
+              title={isSidebarCollapsed ? "Выход" : ""}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                Выход
+              </span>
+            </button>
+
+          </div>
+        </aside>
+
+        {/* Main Area */}
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          <header className="h-16 bg-white dark:bg-[#18181b] border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 px-4 md:px-6 sticky top-0 z-10 transition-colors">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
+            >
+              <Menu className="w-6 h-6 text-slate-600 dark:text-slate-400" />
+            </button>
+
+            <form onSubmit={handleSearch} className="flex-1 max-w-lg relative group">
+              <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FF5B00] transition-colors" />
+              <input
+                type="text"
+                placeholder="Поиск..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] transition-all text-slate-900 dark:text-slate-100"
+              />
+            </form>
+
+            <div className="flex items-center gap-4 ml-4">
+              {/* Header is now clean - only search and maybe some global actions here if needed */}
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 overflow-x-hidden">
+            <div key={activeTab} className="animate-fadeIn">
+              {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => setActiveTab(tab)} />}
+              {activeTab === 'clients' && <ClientManager user={user} />}
+              {activeTab === 'kb' && <KnowledgeBase user={user} />}
+              {activeTab === 'tickets' && <SupportTicketManager user={user} />}
+              {activeTab === 'users' && user.role === 'admin' && <UserManager currentUser={user} />}
+              {activeTab === 'logs' && user.role === 'admin' && (
+                <div className="space-y-4">
+                  <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Логи аудита</h1>
+                  <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+                        <tr className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold tracking-wider">
+                          <th className="px-6 py-4">Дата/Время</th>
+                          <th className="px-6 py-4">Пользователь</th>
+                          <th className="px-6 py-4">Действие</th>
+                          <th className="px-6 py-4">Сущность</th>
+                          <th className="px-6 py-4">Детали</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                        {logs.map(log => (
+                          <tr key={log.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{log.timestamp}</td>
+                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{log.user}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${log.action === 'CREATE' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-orange-50 dark:bg-orange-900/20 text-[#FF5B00]'
+                                } `}>{log.action}</span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">{log.entity}</td>
+                            <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{log.details}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {activeTab === 'search' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div>
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 italic uppercase">Результаты поиска</h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">Найдено для запроса: <span className="text-[#FF5B00] font-bold">"{searchQuery}"</span></p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {searchResults.length > 0 ? searchResults.map((res, i) => (
+                      <div
+                        key={i}
+                        onClick={() => handleSearchNavigate(res)}
+                        className="group bg-white dark:bg-slate-800 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-[#FF5B00]/40 hover:shadow-2xl shadow-slate-200/50 dark:shadow-none transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95"
+                      >
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${res.type === 'Клиент' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' :
+                              res.type === 'Линия' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' :
+                                'bg-amber-50 dark:bg-amber-900/30 text-amber-600'
+                              }`}>
+                              {res.type}
+                            </span>
+                            <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ChevronRight className="w-4 h-4 text-[#FF5B00]" />
+                            </div>
+                          </div>
+                          <p className="text-xl font-black text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors line-clamp-2">{res.name}</p>
+                          {res.raw?.address && (
+                            <p className="text-xs text-slate-400 mt-2 line-clamp-1 font-medium italic">{res.raw.address}</p>
+                          )}
+                        </div>
+                        {/* Decorative background element */}
+                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-[#FF5B00]/5 rounded-full blur-2xl group-hover:bg-[#FF5B00]/10 transition-colors" />
+                      </div>
+                    )) : (
+                      <div className="col-span-full py-24 text-center">
+                        <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 opacity-40">
+                          <IconSearch className="w-10 h-10 text-slate-300" />
+                        </div>
+                        <p className="text-xl font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Ничего не найдено</p>
+                        <p className="text-slate-400 dark:text-slate-500 mt-2">Попробуйте изменить параметры поиска</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 };
 

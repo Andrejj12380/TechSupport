@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { api } from '../services/api';
 import { KnowledgeBaseArticle, KnowledgeBaseAttachment, User } from '../types';
+import { useToast } from './Toast';
 import {
     Search,
     Book,
@@ -18,7 +19,8 @@ import {
     ExternalLink,
     Clock,
     Tag as TagIcon,
-    ChevronLeft
+    ChevronLeft,
+    AlertTriangle
 } from 'lucide-react';
 
 interface KnowledgeBaseProps {
@@ -27,6 +29,7 @@ interface KnowledgeBaseProps {
 
 const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     const isEngineer = user.role === 'admin' || user.role === 'engineer';
+    const { showToast } = useToast();
 
     const [articles, setArticles] = useState<KnowledgeBaseArticle[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -37,8 +40,36 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     const [editForm, setEditForm] = useState({ title: '', content: '', category: '', tags: '' });
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deletingArticleId, setDeletingArticleId] = useState<number | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-save drafts to localStorage
+    const DRAFT_KEY = 'kb_draft';
+    const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const saveDraft = useCallback(() => {
+        if (isEditing && (editForm.title || editForm.content)) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(editForm));
+        }
+    }, [isEditing, editForm]);
+
+    useEffect(() => {
+        if (!isEditing) return;
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = setTimeout(saveDraft, 1500);
+        return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+    }, [editForm, isEditing, saveDraft]);
+
+    const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
+
+    const loadDraft = (): typeof editForm | null => {
+        try {
+            const raw = localStorage.getItem(DRAFT_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    };
 
     useEffect(() => {
         loadArticles();
@@ -79,7 +110,13 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     };
 
     const handleCreateNew = () => {
-        setEditForm({ title: '', content: '', category: '', tags: '' });
+        const draft = loadDraft();
+        if (draft && (draft.title || draft.content)) {
+            setEditForm(draft);
+            showToast('Черновик восстановлен', 'info');
+        } else {
+            setEditForm({ title: '', content: '', category: '', tags: '' });
+        }
         setSelectedArticle(null);
         setIsEditing(true);
         setIsPreview(false);
@@ -120,15 +157,16 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                 setSelectedArticle(created);
             }
             setIsEditing(false);
+            clearDraft();
             loadArticles();
+            showToast(selectedArticle ? 'Статья обновлена' : 'Статья создана');
         } catch (error) {
             console.error('Failed to save article', error);
-            alert('Не удалось сохранить статью');
+            showToast('Не удалось сохранить статью', 'error');
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Вы уверены, что хотите удалить эту статью?')) return;
         try {
             await api.deleteKbArticle(id);
             if (selectedArticle?.id === id) {
@@ -136,9 +174,13 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                 setIsEditing(false);
             }
             loadArticles();
+            showToast('Статья удалена', 'info');
         } catch (error) {
             console.error('Failed to delete article', error);
-            alert('Не удалось удалить статью');
+            showToast('Не удалось удалить статью', 'error');
+        } finally {
+            setDeleteModalOpen(false);
+            setDeletingArticleId(null);
         }
     };
 
@@ -146,9 +188,11 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
         const file = e.target.files?.[0];
         if (!file || !selectedArticle) return;
 
-        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
         try {
-            await api.uploadKbAttachment(selectedArticle.id, file);
+            await api.uploadKbAttachment(selectedArticle.id, formData);
             loadAttachments(selectedArticle.id);
             if (fileInputRef.current) fileInputRef.current.value = '';
         } catch (error) {
@@ -180,10 +224,10 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     return (
         <div className="flex h-[calc(100vh-140px)] gap-6 antialiased">
             {/* Left Sidebar - List */}
-            <div className={`${selectedArticle || isEditing ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden`}>
+            <div className={`${selectedArticle || isEditing ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden`}>
                 <div className="p-5 border-b border-slate-100 space-y-4">
                     <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                             <Book className="w-5 h-5 text-[#FF5B00]" />
                             База Знаний
                         </h2>
@@ -203,17 +247,24 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                             placeholder="Поиск статей..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] transition-all"
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] transition-all"
                         />
-                        <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 group-focus-within:text-[#FF5B00] transition-colors" />
+                        <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 dark:text-slate-500 group-focus-within:text-[#FF5B00] transition-colors" />
                     </form>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-1">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
-                            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-sm font-medium">Загрузка...</span>
+                        <div className="space-y-3 p-1">
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <div key={i} className="p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800 animate-pulse">
+                                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
+                                    <div className="flex gap-2">
+                                        <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-1/4"></div>
+                                        <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-1/4"></div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : articles.length === 0 ? (
                         <div className="text-center py-12 px-4">
@@ -229,11 +280,11 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                     setIsEditing(false);
                                 }}
                                 className={`group p-3 rounded-xl cursor-pointer transition-all border ${selectedArticle?.id === article.id
-                                        ? 'bg-orange-50 border-orange-100 shadow-sm'
-                                        : 'hover:bg-slate-50 border-transparent'
+                                    ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-500/30 shadow-sm'
+                                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'
                                     }`}
                             >
-                                <h3 className={`font-semibold text-sm mb-1 truncate ${selectedArticle?.id === article.id ? 'text-[#FF5B00]' : 'text-slate-700'}`}>
+                                <h3 className={`font-semibold text-sm mb-1 truncate ${selectedArticle?.id === article.id ? 'text-[#FF5B00]' : 'text-slate-700 dark:text-slate-200'}`}>
                                     {article.title}
                                 </h3>
                                 <div className="flex items-center gap-3 text-[11px] text-slate-400">
@@ -253,9 +304,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
             </div>
 
             {/* Main Content Area */}
-            <div className={`flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden ${!selectedArticle && !isEditing ? 'hidden lg:flex' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden ${!selectedArticle && !isEditing ? 'hidden lg:flex' : 'flex'}`}>
                 {!selectedArticle && !isEditing ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-12 text-center">
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-12 text-center">
                         <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-6">
                             <Book className="w-10 h-10 text-slate-300" />
                         </div>
@@ -265,7 +316,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                 ) : isEditing ? (
                     /* Notion-style Editor */
                     <div className="flex-1 flex flex-col h-full overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
                             <div className="flex items-center gap-4">
                                 <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-slate-100 rounded-lg lg:hidden">
                                     <ChevronLeft className="w-5 h-5 text-slate-500" />
@@ -277,7 +328,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setIsPreview(!isPreview)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isPreview ? 'bg-orange-50 text-[#FF5B00]' : 'hover:bg-slate-100 text-slate-600'
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isPreview ? 'bg-orange-50 dark:bg-orange-900/20 text-[#FF5B00]' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
                                         }`}
                                 >
                                     {isPreview ? <Code className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -299,35 +350,35 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                     placeholder="Заголовок статьи..."
                                     value={editForm.title}
                                     onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                                    className="w-full text-4xl font-black text-slate-900 placeholder:text-slate-200 border-none outline-none focus:ring-0 p-0"
+                                    className="w-full text-4xl font-black text-slate-900 dark:text-slate-100 placeholder:text-slate-200 dark:placeholder:text-slate-700 bg-transparent border-none outline-none focus:ring-0 p-0"
                                 />
 
-                                <div className="flex gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700">
                                     <div className="flex-1 space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Категория</label>
+                                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Категория</label>
                                         <input
                                             type="text"
                                             value={editForm.category}
                                             onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-slate-700 placeholder:text-slate-300 p-0"
+                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 p-0"
                                             placeholder="Напр. Настройка VPN"
                                         />
                                     </div>
-                                    <div className="w-[1px] bg-slate-200 my-1" />
+                                    <div className="w-[1px] bg-slate-200 dark:bg-slate-700 my-1" />
                                     <div className="flex-1 space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Теги</label>
+                                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Теги</label>
                                         <input
                                             type="text"
                                             value={editForm.tags}
                                             onChange={e => setEditForm({ ...editForm, tags: e.target.value })}
-                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-slate-700 placeholder:text-slate-300 p-0"
+                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 p-0"
                                             placeholder="тэги через запятую..."
                                         />
                                     </div>
                                 </div>
 
                                 {isPreview ? (
-                                    <div className="prose prose-slate max-w-none min-h-[500px] border-t border-slate-100 pt-6">
+                                    <div className="prose prose-slate dark:prose-invert max-w-none min-h-[500px] border-t border-slate-100 dark:border-slate-700 pt-6 prose-headings:font-black prose-h1:text-4xl prose-h2:text-2xl prose-h3:text-xl prose-h4:text-lg prose-img:rounded-2xl">
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                             {editForm.content || '*Начните писать, чтобы увидеть предпросмотр...*'}
                                         </ReactMarkdown>
@@ -336,7 +387,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                     <textarea
                                         value={editForm.content}
                                         onChange={e => setEditForm({ ...editForm, content: e.target.value })}
-                                        className="w-full min-h-[600px] text-lg text-slate-800 placeholder:text-slate-200 border-none outline-none focus:ring-0 p-0 font-mono resize-none"
+                                        className="w-full min-h-[600px] text-lg text-slate-800 dark:text-slate-200 placeholder:text-slate-200 dark:placeholder:text-slate-700 bg-transparent border-none outline-none focus:ring-0 p-0 font-mono resize-none"
                                         placeholder="Начните писать контент в формате Markdown..."
                                     />
                                 )}
@@ -346,24 +397,29 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                 ) : (
                     /* Read Mode with Attachments */
                     <div className="flex-1 flex flex-col h-full overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 sticky top-0 z-10">
                             <div className="flex items-center gap-4">
-                                <button onClick={() => setSelectedArticle(null)} className="p-2 hover:bg-slate-100 rounded-lg lg:hidden">
-                                    <ChevronLeft className="w-5 h-5 text-slate-500" />
+                                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg lg:hidden">
+                                    <ChevronLeft className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                                 </button>
-                                <div className="text-xs text-slate-400 font-medium">База знаний → {selectedArticle?.category || 'Общее'}</div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-100">
+                                    База знаний → {selectedArticle?.category || 'Общее'}
+                                </h3>
                             </div>
                             {isEngineer && selectedArticle && (
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => handleEdit(selectedArticle)}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-500 hover:text-[#FF5B00] hover:bg-orange-50 rounded-lg transition-all text-sm font-semibold"
+                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-500 dark:text-slate-400 hover:text-[#FF5B00] hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-all text-sm font-semibold"
                                     >
                                         <Edit className="w-4 h-4" />
                                         <span>Редактировать</span>
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(selectedArticle.id)}
+                                        onClick={() => {
+                                            setDeletingArticleId(selectedArticle.id);
+                                            setDeleteModalOpen(true);
+                                        }}
                                         className="flex items-center gap-2 px-3 py-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all text-sm font-semibold"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -378,9 +434,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                 {selectedArticle && (
                                     <>
                                         <div>
-                                            <h1 className="text-5xl font-black text-slate-900 mb-6 leading-tight">{selectedArticle.title}</h1>
+                                            <h1 className="text-5xl font-black text-slate-900 dark:text-slate-100 mb-6 leading-tight">{selectedArticle.title}</h1>
                                             <div className="flex flex-wrap gap-4 items-center text-xs">
-                                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-slate-600 font-bold uppercase tracking-wider">
+                                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider">
                                                     <TagIcon className="w-3 h-3" />
                                                     {selectedArticle.category || 'Без категории'}
                                                 </div>
@@ -397,16 +453,16 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                             </div>
                                         </div>
 
-                                        <div className="prose prose-slate max-w-none prose-headings:font-black prose-a:text-[#FF5B00] text-slate-700 leading-relaxed text-lg pb-12">
+                                        <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-black prose-h1:text-5xl prose-h2:text-3xl prose-h3:text-2xl prose-h4:text-xl prose-a:text-[#FF5B00] text-slate-700 dark:text-slate-300 leading-relaxed text-lg pb-12 prose-img:rounded-2xl prose-img:shadow-xl">
                                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                                 {selectedArticle.content}
                                             </ReactMarkdown>
                                         </div>
 
                                         {/* Attachments Section */}
-                                        <div className="border-t border-slate-100 pt-10">
+                                        <div className="border-t border-slate-100 dark:border-slate-700 pt-10">
                                             <div className="flex justify-between items-center mb-6">
-                                                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                                                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                                     <Paperclip className="w-5 h-5 text-[#FF5B00]" />
                                                     Вложенные файлы ({attachments.length})
                                                 </h3>
@@ -433,18 +489,18 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                             </div>
 
                                             {attachments.length === 0 ? (
-                                                <div className="p-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center text-slate-400 text-sm">
+                                                <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center text-slate-400 text-sm">
                                                     Файлы не прикреплены ко вкладу
                                                 </div>
                                             ) : (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {attachments.map(file => (
-                                                        <div key={file.id} className="group p-4 bg-white border border-slate-200 rounded-2xl flex items-center gap-4 hover:border-[#FF5B00]/50 hover:shadow-xl hover:shadow-slate-100 transition-all">
-                                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-orange-50 group-hover:text-[#FF5B00] transition-colors">
+                                                        <div key={file.id} className="group p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-4 hover:border-[#FF5B00]/50 hover:shadow-xl hover:shadow-slate-100 dark:hover:shadow-black/20 transition-all">
+                                                            <div className="w-12 h-12 bg-slate-50 dark:bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-orange-50 dark:group-hover:bg-orange-900/20 group-hover:text-[#FF5B00] transition-colors">
                                                                 <FileText className="w-6 h-6" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="font-bold text-slate-800 truncate text-sm">{file.original_name}</div>
+                                                                <div className="font-bold text-slate-800 dark:text-slate-100 truncate text-sm">{file.original_name}</div>
                                                                 <div className="text-[11px] text-slate-400 font-medium">
                                                                     {formatSize(file.size_bytes)} • {new Date(file.created_at).toLocaleDateString()}
                                                                 </div>
@@ -480,6 +536,35 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                     </div>
                 )}
             </div>
+            {/* Delete Confirmation Modal */}
+            {deleteModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDeleteModalOpen(false)} />
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md relative z-10 border border-slate-100 dark:border-slate-700 p-8 animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                            <AlertTriangle className="w-8 h-8 text-red-500" />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 text-center mb-2">Удалить статью?</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-center mb-8">
+                            Вы собираетесь безвозвратно удалить статью "{articles.find(a => a.id === deletingArticleId)?.title}". Это действие нельзя отменить.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteModalOpen(false)}
+                                className="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                onClick={() => deletingArticleId && handleDelete(deletingArticleId)}
+                                className="flex-1 py-3 px-4 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-500/20"
+                            >
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

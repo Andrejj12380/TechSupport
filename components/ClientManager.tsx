@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { Client, Site, ProductionLine, Equipment, RemoteAccess, Instruction, EquipmentStatus, User, SiteContact } from '../types';
-import { IconChevronRight, IconCopy } from './Icons';
+import { IconChevronRight, IconCopy, IconChevronLeft } from './Icons';
 import ExcelImportModal from './ExcelImportModal';
 
 const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm bg-[#F8FAFC] dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#FF5B00]/10 focus:border-[#FF5B00] outline-none transition-all";
@@ -591,15 +591,40 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-full">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-full min-h-0">
       {/* Sidebar: Navigation Tree */}
-      <div className="w-full lg:w-80 bg-white dark:bg-slate-800 p-3 lg:p-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-y-auto shrink-0 flex flex-col shadow-sm max-h-[50vh] lg:max-h-none">
-        <div className="flex items-center justify-between mb-4 px-2">
+      <div className={`
+        w-full lg:w-80 bg-white dark:bg-slate-800 p-3 lg:p-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-y-auto shrink-0 flex flex-col shadow-sm
+        ${selectedLine ? 'hidden lg:flex' : 'flex'}
+        max-h-[85vh] lg:max-h-none
+      `}>
+        {/* Navigation Breadcrumbs / Back Button for Mobile */}
+        <div className="lg:hidden mb-4">
+          {selectedSite ? (
+            <button
+              onClick={() => { setSelectedSite(null); setSelectedLine(null); setLines([]); }}
+              className="flex items-center gap-2 text-[#FF5B00] font-bold text-sm"
+            >
+              <IconChevronLeft className="w-4 h-4" />
+              Назад к списку площадок
+            </button>
+          ) : selectedClient ? (
+            <button
+              onClick={() => { setSelectedClient(null); setSelectedSite(null); setSites([]); }}
+              className="flex items-center gap-2 text-[#FF5B00] font-bold text-sm"
+            >
+              <IconChevronLeft className="w-4 h-4" />
+              Назад к списку клиентов
+            </button>
+          ) : null}
+        </div>
+
+        <div className={`flex items-center justify-between mb-4 px-2 ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
           <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Реестр Клиентов</h2>
           {!isViewer && <button onClick={() => setModal({ type: 'client', data: null })} className="w-6 h-6 bg-[#FF5B00] text-white rounded-lg flex items-center justify-center hover:bg-[#e65200] shadow-md shadow-[#FF5B00]/10 transition-all text-lg font-bold">+</button>}
         </div>
 
-        <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl mb-4 text-center">
+        <div className={`flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl mb-4 text-center ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
           {[
             { id: 'all', label: 'Все' },
             { id: 'active', label: 'Активная' },
@@ -630,7 +655,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             }
             return true;
           }).map(c => (
-            <div key={c.id} className="group/item">
+            <div key={c.id} className={`group/item ${selectedClient && selectedClient.id !== c.id ? 'hidden lg:block' : 'block'}`}>
               <div className={`flex items-center rounded-lg transition-all ${selectedClient?.id === c.id ? 'bg-orange-50/50 dark:bg-orange-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
                 <button
                   onClick={() => handleClientSelect(c)}
@@ -666,7 +691,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                     }
                     return true;
                   }).map(s => (
-                    <div key={s.id} className="group/site">
+                    <div key={s.id} className={`group/site ${selectedSite && selectedSite.id !== s.id ? 'hidden lg:block' : 'block'}`}>
                       <div className={`flex items-center rounded ${selectedSite?.id === s.id ? 'bg-slate-100 dark:bg-slate-700' : ''}`}>
                         <button
                           onClick={() => handleSiteSelect(s)}
@@ -735,7 +760,21 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 bg-white dark:bg-slate-800 p-4 lg:p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-y-auto">
+      <div className={`
+        flex-1 bg-white dark:bg-slate-800 p-4 lg:p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-y-auto
+        ${!selectedLine ? 'hidden lg:block' : 'block'}
+      `}>
+        {selectedLine && (
+          <div className="lg:hidden mb-6">
+            <button
+              onClick={() => setSelectedLine(null)}
+              className="flex items-center gap-2 text-[#FF5B00] font-bold text-sm"
+            >
+              <IconChevronLeft className="w-4 h-4" />
+              Назад к списку линий
+            </button>
+          </div>
+        )}
         {!selectedLine ? (
           !selectedClient ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-slate-600 space-y-4">
@@ -790,14 +829,34 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                         selectedSite.contacts.map(contact => (
                           <div key={contact.id} className="bg-slate-50/50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100/50 dark:border-slate-700/50 group hover:border-orange-100 dark:hover:border-orange-900/30 transition-all">
                             <div className="flex justify-between items-start mb-2">
-                              <div className="overflow-hidden">
+                              <div className="flex-1 overflow-hidden mr-4">
                                 <div className="font-bold text-slate-900 dark:text-slate-100 truncate" title={contact.fio}>{contact.fio}</div>
                                 {contact.position && <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider truncate">{contact.position}</div>}
+
+                                <div className="space-y-1.5 mt-3">
+                                  {contact.phone && (
+                                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                      <span className="opacity-50">📞</span>
+                                      <a href={`tel:${contact.phone}`} className="hover:text-[#FF5B00] hover:underline truncate">{contact.phone}</a>
+                                    </div>
+                                  )}
+                                  {contact.email && (
+                                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
+                                      <span className="opacity-50">✉️</span>
+                                      <a href={`mailto:${contact.email}`} className="hover:text-[#FF5B00] hover:underline truncate" title={contact.email}>{contact.email}</a>
+                                    </div>
+                                  )}
+                                  {contact.comments && (
+                                    <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-slate-500 italic text-[11px] leading-relaxed">
+                                      {contact.comments}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex justify-between items-center mt-2">
+                              <div className="flex items-center shrink-0 ml-2">
                                 {!isViewer && (
-                                  <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
-                                    <button onClick={() => setModal({ type: 'site_contact', data: contact })} className="p-1 text-slate-400 hover:text-[#FF5B00] transition-colors">✎</button>
+                                  <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setModal({ type: 'site_contact', data: contact })} className="p-1.5 text-slate-400 hover:text-[#FF5B00] transition-colors">✎</button>
                                     {isAdmin && (
                                       <button
                                         onClick={async () => {
@@ -806,30 +865,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                             setSites(await api.getSites(selectedClient!.id));
                                           }
                                         }}
-                                        className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                                       >
                                         ✕
                                       </button>
                                     )}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="space-y-1.5 mt-3">
-                                {contact.phone && (
-                                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                                    <span className="opacity-50">📞</span>
-                                    <a href={`tel:${contact.phone}`} className="hover:text-[#FF5B00] hover:underline truncate">{contact.phone}</a>
-                                  </div>
-                                )}
-                                {contact.email && (
-                                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
-                                    <span className="opacity-50">✉️</span>
-                                    <a href={`mailto:${contact.email}`} className="hover:text-[#FF5B00] hover:underline truncate" title={contact.email}>{contact.email}</a>
-                                  </div>
-                                )}
-                                {contact.comments && (
-                                  <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-slate-500 italic text-[11px] leading-relaxed">
-                                    {contact.comments}
                                   </div>
                                 )}
                               </div>
@@ -875,6 +915,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                         </div>
                         <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 group-hover:text-[#FF5B00] transition-colors flex items-center gap-2">
                           {line.name}
+                          {line.cabinet_number && (
+                            <span className="text-[10px] font-black text-[#FF5B00] bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 px-2 py-0.5 rounded-lg">
+                              {line.cabinet_number}
+                            </span>
+                          )}
                           <span
                             title={getLineStatus(line).tooltip}
                             className={`w-2 h-2 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(line).status) ? 'bg-emerald-400' : getLineStatus(line).status === 'expired' ? 'bg-red-400' : 'bg-slate-200 dark:bg-slate-700'}`}
@@ -951,6 +996,16 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                   </h1>
                   <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">{selectedClient?.name} / {selectedSite?.name}</p>
                 </div>
+
+                {selectedLine.cabinet_number && (
+                  <div className="hidden md:flex flex-1 justify-center px-4">
+                    <div className="px-4 py-2 bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 rounded-2xl flex flex-col items-center">
+                      <span className="text-[10px] font-black text-orange-400 dark:text-orange-500 uppercase tracking-widest leading-none mb-1">Шкаф управления</span>
+                      <span className="text-xl font-black text-[#FF5B00] leading-none">{selectedLine.cabinet_number}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2">
                   <span
                     title={getLineStatus(selectedLine).tooltip}

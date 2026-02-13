@@ -1621,10 +1621,10 @@ app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
       `UPDATE support_tickets 
             SET line_id = $1, contact_name = $2, problem_description = $3, 
                 solution_description = $4, status = $5, support_line = $6, reported_at = $7::timestamptz, resolved_at = $8::timestamptz, updated_at = CURRENT_TIMESTAMP
-                , category_id = COALESCE($9, category_id)
+                , category_id = COALESCE($9, category_id), user_id = COALESCE($11, user_id)
             WHERE id = $10
             RETURNING *`,
-      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id]
+      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id, req.body.user_id || null]
     );
 
     if (result.rows.length === 0) {

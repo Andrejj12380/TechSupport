@@ -24,6 +24,7 @@ import {
     PauseCircle
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
+import { useToast } from './Toast';
 
 interface SupportTicketManagerProps {
     user: User | null;
@@ -69,7 +70,26 @@ const getLineStatus = (line: ProductionLine) => {
     return { status: 'none', label: 'Нет', color: 'bg-slate-50 text-slate-400' };
 };
 
+const formatSmartDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    if (isToday) {
+        return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    const isThisYear = date.getFullYear() === now.getFullYear();
+    if (isThisYear) {
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 export default function SupportTicketManager({ user }: SupportTicketManagerProps) {
+    const { showToast } = useToast();
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [lines, setLines] = useState<ProductionLine[]>([]);
@@ -117,6 +137,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     const [filterReportedFrom, setFilterReportedFrom] = useState<string>('');
     const [filterReportedTo, setFilterReportedTo] = useState<string>('');
     const [filterCategory, setFilterCategory] = useState<string>('');
+    const [engineers, setEngineers] = useState<User[]>([]);
     const [sortDateMode, setSortDateMode] = useState<'reported_at' | 'created_at'>('reported_at');
 
     useEffect(() => {
@@ -132,6 +153,24 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         if (status) setFilterStatus(status);
     }, []);
 
+    // Effect to handle deep linking to a specific ticket
+    useEffect(() => {
+        if (!isLoading && tickets.length > 0) {
+            const params = new URLSearchParams(window.location.search);
+            const ticketId = params.get('ticketId');
+            if (ticketId) {
+                const ticket = tickets.find(t => t.id === parseInt(ticketId));
+                if (ticket) {
+                    openEditModal(ticket);
+                    // Clear param to avoid re-opening on manual refresh or back navigation
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('ticketId');
+                    window.history.replaceState({ tab: 'tickets' }, '', url.toString());
+                }
+            }
+        }
+    }, [isLoading, tickets.length]);
+
     const fetchData = async () => {
         try {
             setIsLoading(true);
@@ -146,8 +185,12 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
     const fetchMetadata = async () => {
         try {
-            const clientsData = await api.getClients();
+            const [clientsData, usersData] = await Promise.all([
+                api.getClients(),
+                api.getUsers()
+            ]);
             setClients(clientsData);
+            setEngineers(usersData.filter(u => u.role === 'admin' || u.role === 'engineer'));
         } catch (err) {
             console.error('Error fetching metadata:', err);
         }
@@ -242,6 +285,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             setIsModalOpen(false);
             fetchData();
             resetForm();
+            showToast(selectedTicket ? 'Обращение обновлено' : 'Обращение создано');
         } catch (err: any) {
             console.error('Error saving ticket:', err);
             setFormError(err?.message || 'Ошибка при сохранении');
@@ -257,6 +301,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             setIsDeleteModalOpen(false);
             setDeletingTicketId(null);
             fetchData();
+            showToast('Обращение удалено', 'info');
         } catch (err) {
             console.error('Error deleting ticket:', err);
         }
@@ -286,14 +331,15 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         setFormData({
             client_id: ticket.client_id,
             line_id: ticket.line_id,
+            user_id: ticket.user_id,
             contact_name: ticket.contact_name,
             problem_description: ticket.problem_description,
             solution_description: ticket.solution_description || '',
             status: ticket.status,
             support_line: ticket.support_line,
-            category_id: ticket.category_id ?? null,
-            reported_at: toInputLocal(ticket.reported_at || ticket.created_at),
-            resolved_at: toInputLocal(ticket.resolved_at || '')
+            category_id: ticket.category_id,
+            reported_at: ticket.reported_at || '',
+            resolved_at: ticket.resolved_at || ''
         });
 
         // Fetch lines and contacts for the client
@@ -488,7 +534,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
             {/* Filters & Search */}
             <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap items-center gap-4">
-                <div className="relative flex-1 min-w-[300px]">
+                <div className="relative flex-1 min-w-[200px] sm:min-w-[300px]">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
@@ -499,12 +545,12 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                     <Filter className="w-5 h-5 text-slate-400 ml-2" />
                     <select
                         value={filterClient}
                         onChange={(e) => setFilterClient(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[180px] w-full sm:w-auto"
+                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-0 flex-1 sm:flex-none sm:min-w-[180px] w-full sm:w-auto text-sm"
                     >
                         <option value="">Все клиенты</option>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -561,15 +607,15 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             </div>
 
             {/* Tickets Table */}
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Дата / Статус</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Клиент / Линия</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Проблема</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Линия ТП / Инженер</th>
+                            <tr className="bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Дата / Статус</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Клиент / Линия</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Проблема</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Линия ТП / Инженер</th>
                                 <th className="px-6 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-wider">Действия</th>
                             </tr>
                         </thead>
@@ -582,27 +628,30 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 ))
                             ) : sortedTickets.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-20 text-center">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
-                                                <MessageSquare className="w-8 h-8 text-slate-300" />
+                                    <td colSpan={7} className="px-6 py-24">
+                                        <div className="flex flex-col items-center justify-center text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800/50 rounded-3xl flex items-center justify-center mb-6 border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
+                                                <MessageSquare className="w-10 h-10 text-slate-300 dark:text-slate-600" />
                                             </div>
-                                            <p className="text-slate-400 font-bold">Обращений не найдено</p>
+                                            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Обращений не найдено</h3>
+                                            <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                                                {searchQuery ? `По запросу "${searchQuery}" ничего не найдено. Попробуйте изменить параметры фильтрации.` : 'В этом разделе пока нет обращений. Новые появятся здесь автоматически.'}
+                                            </p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : sortedTickets.map((ticket) => (
-                                <tr key={ticket.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <tr key={ticket.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors group">
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
                                             {getStatusIcon(ticket.status)}
                                             <div>
-                                                <div className="text-sm font-black text-slate-900">
-                                                    {new Date(ticket.reported_at || ticket.created_at).toLocaleString('ru-RU')}
+                                                <div className="text-sm font-black text-slate-900 dark:text-slate-100">
+                                                    {formatSmartDate(ticket.reported_at || ticket.created_at)}
                                                 </div>
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter flex items-center gap-1.5 flex-wrap">
                                                     <span>{getStatusLabel(ticket.status)}</span>
-                                                    {ticket.resolved_at && <span> • Решено: {new Date(ticket.resolved_at).toLocaleString('ru-RU')}</span>}
+                                                    {ticket.resolved_at && <span> • Решено: {formatSmartDate(ticket.resolved_at)}</span>}
                                                     <span className={`px-1.5 py-0.5 rounded-md ${getTicketSupportStatus(ticket).color} border border-current opacity-70`}>
                                                         {getTicketSupportStatus(ticket).label}
                                                     </span>
@@ -611,12 +660,12 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <div className="text-sm font-bold text-slate-900 group-hover:text-[#FF5B00] transition-colors">{ticket.client_name}</div>
-                                        <div className="text-xs font-medium text-slate-500">{ticket.line_name || '—'}</div>
+                                        <div className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{ticket.client_name}</div>
+                                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{ticket.line_name || '—'}</div>
                                     </td>
                                     <td className="px-6 py-5 max-w-md">
-                                        <div className="text-sm font-bold text-slate-700 line-clamp-1">{ticket.problem_description}</div>
-                                        <div className="text-xs text-slate-400 font-medium">Контакт: {ticket.contact_name}</div>
+                                        <div className="text-sm font-bold text-slate-700 dark:text-slate-200 line-clamp-1">{ticket.problem_description}</div>
+                                        <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">Контакт: {ticket.contact_name}</div>
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
@@ -630,12 +679,12 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <UserAvatar username={ticket.engineer_name || ''} size="sm" />
-                                                <span className="text-xs font-bold text-slate-600">{ticket.engineer_name}</span>
+                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{ticket.engineer_name}</span>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5 text-right">
-                                        <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center justify-end gap-3 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                             {isAuthorized && !['paid', 'warranty'].includes(getTicketSupportStatus(ticket).status) && (
                                                 <div className="flex items-center gap-2 border-r border-slate-100 pr-3 mr-1">
                                                     {ticket.work_started_at ? (
@@ -708,10 +757,10 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
             {/* Create/Edit Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-                        <div className="p-8 pb-4 flex justify-between items-center shrink-0 border-b border-slate-50">
-                            <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-200">
+                        <div className="p-8 pb-4 flex justify-between items-center shrink-0 border-b border-slate-50 dark:border-slate-700">
+                            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3">
                                 {selectedTicket ? <Edit2 className="w-6 h-6 text-[#FF5B00]" /> : <Plus className="w-6 h-6 text-[#FF5B00]" />}
                                 {selectedTicket ? 'Редактировать обращение' : 'Новое обращение'}
                             </h2>
@@ -721,7 +770,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-8 pt-4 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
                                         <Building2 className="w-3 h-3" /> Клиент
@@ -731,7 +780,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer}
                                         value={formData.client_id}
                                         onChange={(e) => handleClientChange(Number(e.target.value))}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="">Выберите клиента</option>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -745,7 +794,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer}
                                         value={formData.line_id || ''}
                                         onChange={(e) => setFormData({ ...formData, line_id: e.target.value ? Number(e.target.value) : null })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="">Не привязано</option>
                                         {lines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -758,7 +807,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer}
                                         value={formData.category_id ?? ''}
                                         onChange={(e) => setFormData({ ...formData, category_id: e.target.value ? Number(e.target.value) : null })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="">Выберите категорию</option>
                                         {ticketCategories
@@ -771,7 +820,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
                                         <UserIcon className="w-3 h-3" /> Контактное лицо
@@ -783,7 +832,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         list="contact-suggestions"
                                         value={formData.contact_name}
                                         onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                         placeholder="Имя / Фамилия заявителя"
                                     />
                                     <datalist id="contact-suggestions">
@@ -795,145 +844,166 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Линия техподдержки</label>
                                     <div className="flex gap-2">
-                                        {[1, 2, 3].map(num => (
+                                        {[1, 2, 3].map(line => (
                                             <button
-                                                key={num}
+                                                key={line}
                                                 type="button"
                                                 disabled={isViewer}
-                                                onClick={() => setFormData({ ...formData, support_line: num as any })}
+                                                onClick={() => setFormData({ ...formData, support_line: line as any })}
                                                 className={`
-                                                        flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all
-                                                        ${formData.support_line === num
-                                                        ? (num === 1 ? 'bg-blue-500 text-white' : num === 2 ? 'bg-purple-500 text-white' : 'bg-red-500 text-white')
-                                                        : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}
-                                                        ${isViewer ? 'cursor-not-allowed' : ''}
-                                                    `}
+                                                    flex-1 py-3 px-4 rounded-xl font-black text-sm transition-all
+                                                    ${formData.support_line === line
+                                                        ? (line === 1 ? 'bg-blue-500 text-white shadow-lg shadow-blue-200' :
+                                                            line === 2 ? 'bg-purple-500 text-white shadow-lg shadow-purple-200' :
+                                                                'bg-red-500 text-white shadow-lg shadow-red-200')
+                                                        : 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'}
+                                                `}
                                             >
-                                                {num}-я
+                                                L{line}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Дата / время обращения</label>
-                                    <input
-                                        type="datetime-local"
-                                        disabled={isViewer}
-                                        value={formData.reported_at || ''}
-                                        onChange={(e) => setFormData({ ...formData, reported_at: e.target.value })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Дата / время решения</label>
-                                    <input
-                                        type="datetime-local"
-                                        disabled={isViewer}
-                                        value={formData.resolved_at || ''}
-                                        onChange={(e) => setFormData({ ...formData, resolved_at: e.target.value })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
-                                    />
-                                </div>
-                            </div>
-
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Описание проблемы</label>
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                    <AlertCircle className="w-3 h-3" /> Описание проблемы
+                                </label>
                                 <textarea
                                     required
                                     disabled={isViewer}
                                     value={formData.problem_description}
                                     onChange={(e) => setFormData({ ...formData, problem_description: e.target.value })}
-                                    className={`w-full h-32 px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-3xl outline-none font-medium text-slate-700 transition-all resize-none ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
-                                    placeholder="Подробно опишите возникшую проблему..."
+                                    className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    placeholder="Подробно опишите суть обращения клиента..."
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Решение (если есть)</label>
+                                <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                    <CheckCircle2 className="w-3 h-3" /> Принятые меры / Решение
+                                </label>
                                 <textarea
                                     disabled={isViewer}
-                                    value={formData.solution_description || ''}
+                                    value={formData.solution_description}
                                     onChange={(e) => setFormData({ ...formData, solution_description: e.target.value })}
-                                    className={`w-full h-48 px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-[#FF5B00] rounded-3xl outline-none font-medium text-slate-700 transition-all resize-none ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     placeholder="Опишите принятые меры или итоговое решение..."
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6 pt-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Инженер</label>
+                                    <select
+                                        disabled={isViewer || (user?.role !== 'admin' && !!selectedTicket?.id)}
+                                        value={formData.user_id || ''}
+                                        onChange={(e) => setFormData({ ...formData, user_id: Number(e.target.value) })}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    >
+                                        <option value="">Выберите инженера</option>
+                                        {engineers.map(eng => (
+                                            <option key={eng.id} value={eng.id}>{eng.username}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Статус</label>
                                     <div className="flex flex-wrap gap-2">
-                                        {['in_progress', 'solved', 'unsolved', 'on_hold'].map(s => (
+                                        {['in_progress', 'on_hold', 'solved', 'unsolved'].map(status => (
                                             <button
-                                                key={s}
+                                                key={status}
                                                 type="button"
                                                 disabled={isViewer}
-                                                onClick={() => setFormData({ ...formData, status: s as any })}
+                                                onClick={() => setFormData({ ...formData, status: status as any })}
                                                 className={`
-                                                        px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all
-                                                        ${formData.status === s
-                                                        ? (s === 'solved' ? 'bg-emerald-500 text-white' :
-                                                            s === 'in_progress' ? 'bg-amber-500 text-white' :
-                                                                s === 'unsolved' ? 'bg-red-500 text-white' :
-                                                                    s === 'on_hold' ? 'bg-slate-500 text-white' :
-                                                                        'bg-blue-500 text-white')
-                                                        : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}
-                                                        ${isViewer ? 'cursor-not-allowed' : ''}
-                                                    `}
+                                                    px-4 py-2 rounded-xl text-xs font-bold transition-all
+                                                    ${formData.status === status
+                                                        ? 'bg-[#FF5B00] text-white shadow-lg shadow-[#FF5B00]/25'
+                                                        : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}
+                                                `}
                                             >
-                                                {getStatusLabel(s)}
+                                                {getStatusLabel(status)}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="flex flex-col sm:flex-row items-end justify-end gap-3">
-                                    {formError && (
-                                        <div className="text-red-500 text-sm font-bold mr-auto mb-3 sm:mb-0">{formError}</div>
-                                    )}
-
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsModalOpen(false)}
-                                            disabled={isSaving}
-                                            className={`px-6 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isViewer ? 'w-full' : ''}`}
-                                        >
-                                            {isViewer ? 'Закрыть' : 'Отмена'}
-                                        </button>
-                                        {!isViewer && (
-                                            <button
-                                                type="submit"
-                                                disabled={isSaving}
-                                                className="bg-[#FF5B00] text-white px-10 py-4 rounded-2xl font-black shadow-lg shadow-[#FF5B00]/30 hover:shadow-xl hover:bg-[#e65200] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isSaving ? 'Сохранение...' : (selectedTicket ? 'Сохранить изменения' : 'Создать запись')}
-                                            </button>
-                                        )}
-                                    </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Дата и время обращения</label>
+                                    <input
+                                        disabled={isViewer}
+                                        type="datetime-local"
+                                        value={formData.reported_at ? toInputLocal(formData.reported_at as string) : ''}
+                                        onChange={(e) => setFormData({ ...formData, reported_at: toISOStringFromInput(e.target.value) || undefined })}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    />
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">Дата и время решения</label>
+                                    <input
+                                        disabled={isViewer}
+                                        type="datetime-local"
+                                        value={formData.resolved_at ? toInputLocal(formData.resolved_at as string) : ''}
+                                        onChange={(e) => setFormData({ ...formData, resolved_at: toISOStringFromInput(e.target.value) || undefined })}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    />
+                                </div>
+                            </div>
+
+                            {formError && (
+                                <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100 animate-in shake duration-300">
+                                    {formError}
+                                </div>
+                            )}
+
+                            <div className="flex gap-4 pt-4 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="flex-1 px-6 py-4 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-600 transition-all active:scale-95"
+                                >
+                                    Отмена
+                                </button>
+                                {!isViewer && (
+                                    <button
+                                        type="submit"
+                                        disabled={isSaving}
+                                        className="flex-1 px-6 py-4 bg-[#FF5B00] text-white font-black rounded-2xl hover:bg-[#e65200] transition-all shadow-lg shadow-[#FF5B00]/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Сохранение...
+                                            </>
+                                        ) : (
+                                            'Сохранить запись'
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Modal */}
             {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-[2rem] shadow-2xl p-8 max-w-sm w-full text-center border border-slate-100 dark:border-slate-800">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true">
+                    <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl p-8 max-w-sm w-full text-center border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-200">
                         <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Trash2 className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl font-black text-slate-900 mb-2">Удалить обращение?</h3>
-                        <p className="text-slate-500 font-medium mb-6">Это действие нельзя отменить. Запись будет навсегда удалена из журнала.</p>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-2">Удалить обращение?</h3>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium mb-6">Это действие нельзя отменить. Запись будет навсегда удалена из журнала.</p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setIsDeleteModalOpen(false)}
-                                className="flex-1 py-4 bg-slate-50 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all"
+                                className="flex-1 py-4 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-600 transition-all"
                             >
                                 Отмена
                             </button>
@@ -948,34 +1018,35 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                 </div>
             )}
 
+            {/* Category Modal */}
             {isCategoryModalOpen && user?.role === 'admin' && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden border border-slate-100">
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                            <h3 className="text-xl font-black text-slate-900">Категории проблем</h3>
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+                    <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden border border-slate-100 dark:border-slate-700">
+                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                            <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">Категории проблем</h3>
                             <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                                 <X size={22} />
                             </button>
                         </div>
 
                         <div className="p-6 grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
-                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                            <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
                                 <form onSubmit={saveCategory} className="space-y-3">
-                                    <div className="text-sm font-black text-slate-900">
+                                    <div className="text-sm font-black text-slate-900 dark:text-slate-100">
                                         {editingCategory ? 'Редактирование' : 'Новая категория'}
                                     </div>
                                     <input
                                         type="text"
                                         value={categoryForm.name}
                                         onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700"
+                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200"
                                         placeholder="Название"
                                         required
                                     />
                                     <textarea
                                         value={categoryForm.description}
                                         onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 min-h-[80px]"
+                                        className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 min-h-[80px]"
                                         placeholder="Описание (пояснение)"
                                     />
                                     <div className="grid grid-cols-2 gap-3">
@@ -985,17 +1056,17 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                 type="number"
                                                 value={categoryForm.sort_order}
                                                 onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: Number(e.target.value) })}
-                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700"
+                                                className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200"
                                                 placeholder="Порядок"
                                             />
                                         </div>
                                         <div className="flex items-end pb-3">
-                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-600 cursor-pointer">
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
                                                 <input
                                                     type="checkbox"
                                                     checked={categoryForm.is_active}
                                                     onChange={(e) => setCategoryForm({ ...categoryForm, is_active: e.target.checked })}
-                                                    className="w-4 h-4 rounded border-slate-300 text-[#FF5B00] focus:ring-[#FF5B00]"
+                                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[#FF5B00] focus:ring-[#FF5B00]"
                                                 />
                                                 Активна
                                             </label>
@@ -1012,7 +1083,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                             <button
                                                 type="button"
                                                 onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', description: '', sort_order: 0, is_active: true }); }}
-                                                className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 font-black hover:bg-slate-50"
+                                                className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black hover:bg-slate-50 dark:hover:bg-slate-700"
                                             >
                                                 Отмена
                                             </button>
@@ -1021,37 +1092,37 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 </form>
                             </div>
 
-                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                                 <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
                                     <table className="w-full text-left">
-                                        <thead className="bg-slate-50 border-b border-slate-100">
-                                            <tr className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+                                            <tr className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                                                 <th className="px-4 py-3">Категория</th>
                                                 <th className="px-4 py-3">Порядок</th>
                                                 <th className="px-4 py-3">Активна</th>
                                                 <th className="px-4 py-3 text-right">Действия</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-50">
+                                        <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                                             {ticketCategories
                                                 .slice()
                                                 .sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))
                                                 .map(c => (
-                                                    <tr key={c.id} className="text-sm">
-                                                        <td className="px-4 py-3 font-bold text-slate-800">{c.name}</td>
-                                                        <td className="px-4 py-3 text-slate-500">{c.sort_order}</td>
-                                                        <td className="px-4 py-3 text-slate-500">{c.is_active ? 'Да' : 'Нет'}</td>
+                                                    <tr key={c.id} className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                                        <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
+                                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{c.sort_order}</td>
+                                                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{c.is_active ? 'Да' : 'Нет'}</td>
                                                         <td className="px-4 py-3 text-right whitespace-nowrap">
                                                             <div className="inline-flex gap-2">
                                                                 <button
                                                                     onClick={() => openEditCategoryModal(c)}
-                                                                    className="px-3 py-1.5 rounded-lg text-slate-600 bg-slate-50 hover:bg-slate-100 font-bold"
+                                                                    className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 font-bold"
                                                                 >
                                                                     Редактировать
                                                                 </button>
                                                                 <button
                                                                     onClick={() => deleteCategory(c.id)}
-                                                                    className="px-3 py-1.5 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 font-bold"
+                                                                    className="px-3 py-1.5 rounded-lg text-red-600 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 font-bold"
                                                                 >
                                                                     Удалить
                                                                 </button>
