@@ -13,7 +13,8 @@ import {
   KnowledgeBaseAttachment,
   SupportTicket,
   SiteContact,
-  TicketCategory
+  TicketCategory,
+  CameraPreset
 } from '../types';
 
 class ApiService {

@@ -20,6 +20,11 @@ const PpmCalculator: React.FC = () => {
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [results, setResults] = useState<(CalculationResult & { opticalFovW: number, discrepancy: number, reliabilityStatus: 'low' | 'acceptable' | 'stable' }) | null>(null);
 
+  // Module size calculator
+  const [calcTotalSize, setCalcTotalSize] = useState(10);
+  const [calcModuleCount, setCalcModuleCount] = useState(20);
+  const [calculatedModuleSize, setCalculatedModuleSize] = useState(0.5);
+
   // Preset management
   const [showPresetForm, setShowPresetForm] = useState(false);
   const [editingPreset, setEditingPreset] = useState<CameraPreset | null>(null);
@@ -35,6 +40,12 @@ const PpmCalculator: React.FC = () => {
   useEffect(() => {
     loadPresets();
   }, []);
+
+  useEffect(() => {
+    if (calcModuleCount > 0) {
+      setCalculatedModuleSize(calcTotalSize / calcModuleCount);
+    }
+  }, [calcTotalSize, calcModuleCount]);
 
   const loadPresets = async () => {
     try {
@@ -52,7 +63,7 @@ const PpmCalculator: React.FC = () => {
       resolutionWidth: preset.resolution_width,
       resolutionHeight: preset.resolution_height,
       pixelSizeUm: preset.pixel_size_um,
-      lensFocalLengthMm: preset.lens_focal_length_mm || prev.lensFocalLengthMm
+      lensFocalLengthMm: preset.lens_focal_length_mm ?? prev.lensFocalLengthMm
     }));
   };
 
@@ -62,7 +73,9 @@ const PpmCalculator: React.FC = () => {
     // Validation
     if (fovWidth <= 0 || fovHeight <= 0 || moduleSizeMm <= 0 ||
       resolutionWidth <= 0 || resolutionHeight <= 0 ||
-      pixelSizeUm <= 0 || distanceMm <= 0 || lensFocalLengthMm <= 0) {
+      pixelSizeUm <= 0 || distanceMm <= 0 || lensFocalLengthMm <= 0 ||
+      distanceMm <= lensFocalLengthMm) {
+      setResults(null);
       return;
     }
 
@@ -77,22 +90,21 @@ const PpmCalculator: React.FC = () => {
 
     const ppmW = pixelsPerMmW * moduleSizeMm;
     const ppmH = pixelsPerMmH * moduleSizeMm;
+    const ppm = Math.min(ppmW, ppmH);
 
-    const magnification = (lensFocalLengthMm * distanceMm) / (distanceMm - lensFocalLengthMm);
+    const magnification = sensorWidthMm / fovWidth;
 
     const discrepancy = opticalFovW > 0 ? Math.abs(fovWidth - opticalFovW) / opticalFovW : 0;
 
     let reliabilityStatus: 'low' | 'acceptable' | 'stable' = 'low';
-    let statusMessage = 'Низкая надёжность декодирования';
+    let statusMessage = 'Внимание: Низкая надежность (PPM < 2.5).';
 
-    if (ppmW >= 3 && ppmH >= 3) {
-      if (ppmW >= 5 && ppmH >= 5) {
-        reliabilityStatus = 'stable';
-        statusMessage = 'Стабильное декодирование';
-      } else {
-        reliabilityStatus = 'acceptable';
-        statusMessage = 'Приемлемое декодирование';
-      }
+    if (ppm >= 3) {
+      reliabilityStatus = 'stable';
+      statusMessage = 'Стабильное считывание (PPM > 3.0).';
+    } else if (ppm >= 2.5) {
+      reliabilityStatus = 'acceptable';
+      statusMessage = 'Приемлемо (PPM 2.5–3.0). Требует качественной настройки.';
     }
 
     setResults({
@@ -100,6 +112,7 @@ const PpmCalculator: React.FC = () => {
       pixelsPerMmH,
       ppmW,
       ppmH,
+      ppm,
       sensorWidthMm,
       sensorHeightMm,
       magnification,
@@ -167,6 +180,21 @@ const PpmCalculator: React.FC = () => {
     }
   };
 
+  const applyOpticalFov = () => {
+    if (results) {
+      const aspectRatio = params.resolutionWidth / params.resolutionHeight;
+      setParams(prev => ({
+        ...prev,
+        fovWidth: results.opticalFovW,
+        fovHeight: results.opticalFovW / aspectRatio
+      }));
+    }
+  };
+
+  const applyCalculatedModuleSize = () => {
+    setParams(prev => ({ ...prev, moduleSizeMm: calculatedModuleSize }));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -203,6 +231,12 @@ const PpmCalculator: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {selectedPresetId === null && (
+                  <div className="p-4 rounded-xl border bg-blue-500/20 border-blue-400/50">
+                    <h3 className="font-medium text-white">Пользовательская камера</h3>
+                    <p className="text-sm text-slate-300">Ручные настройки</p>
+                  </div>
+                )}
                 {presets.map((preset) => (
                   <div
                     key={preset.id}
@@ -257,14 +291,14 @@ const PpmCalculator: React.FC = () => {
                       <input
                         type="number"
                         value={params.resolutionWidth}
-                        onChange={(e) => setParams(prev => ({ ...prev, resolutionWidth: Number(e.target.value) }))}
+                        onChange={(e) => { setSelectedPresetId(null); setParams(prev => ({ ...prev, resolutionWidth: Number(e.target.value) })) }}
                         className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Ширина"
                       />
                       <input
                         type="number"
                         value={params.resolutionHeight}
-                        onChange={(e) => setParams(prev => ({ ...prev, resolutionHeight: Number(e.target.value) }))}
+                        onChange={(e) => { setSelectedPresetId(null); setParams(prev => ({ ...prev, resolutionHeight: Number(e.target.value) })) }}
                         className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Высота"
                       />
@@ -277,10 +311,10 @@ const PpmCalculator: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="0.001"
                       min="0"
                       value={params.pixelSizeUm}
-                      onChange={(e) => setParams(prev => ({ ...prev, pixelSizeUm: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => { const val = parseFloat(e.target.value); setSelectedPresetId(null); setParams(prev => ({ ...prev, pixelSizeUm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
                       className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -291,10 +325,10 @@ const PpmCalculator: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      step="0.1"
+                      step="0.001"
                       min="0"
                       value={params.lensFocalLengthMm}
-                      onChange={(e) => setParams(prev => ({ ...prev, lensFocalLengthMm: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => { const val = parseFloat(e.target.value); setSelectedPresetId(null); setParams(prev => ({ ...prev, lensFocalLengthMm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
                       className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -308,19 +342,19 @@ const PpmCalculator: React.FC = () => {
                     <div className="grid grid-cols-2 gap-3">
                       <input
                         type="number"
-                        step="0.1"
+                        step="0.001"
                         min="0"
                         value={params.fovWidth}
-                        onChange={(e) => setParams(prev => ({ ...prev, fovWidth: parseFloat(e.target.value) || 0 }))}
+                        onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, fovWidth: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
                         className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Ширина"
                       />
                       <input
                         type="number"
-                        step="0.1"
+                        step="0.001"
                         min="0"
                         value={params.fovHeight}
-                        onChange={(e) => setParams(prev => ({ ...prev, fovHeight: parseFloat(e.target.value) || 0 }))}
+                        onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, fovHeight: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
                         className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Высота"
                       />
@@ -333,10 +367,10 @@ const PpmCalculator: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      step="0.1"
+                      step="0.001"
                       min="0"
                       value={params.distanceMm}
-                      onChange={(e) => setParams(prev => ({ ...prev, distanceMm: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, distanceMm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
                       className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -350,10 +384,62 @@ const PpmCalculator: React.FC = () => {
                       step="0.001"
                       min="0"
                       value={params.moduleSizeMm}
-                      onChange={(e) => setParams(prev => ({ ...prev, moduleSizeMm: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, moduleSizeMm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
                       className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Module Size Calculator */}
+              <div className="mt-6 p-4 bg-white/5 rounded-lg">
+                <h3 className="text-lg font-medium text-white mb-4">Калькулятор размера модуля</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Общий размер кода (мм)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={calcTotalSize}
+                      onChange={(e) => { const val = parseFloat(e.target.value); setCalcTotalSize(isNaN(val) ? 0 : Math.round(val * 1000) / 1000) }}
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Количество модулей
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={calcModuleCount}
+                      onChange={(e) => setCalcModuleCount(Number(e.target.value) || 1)}
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Рассчитанный размер модуля (мм)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={calculatedModuleSize.toFixed(3)}
+                      readOnly
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={applyCalculatedModuleSize}
+                    className="px-6 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-colors"
+                  >
+                    Применить
+                  </button>
                 </div>
               </div>
             </div>
@@ -369,15 +455,9 @@ const PpmCalculator: React.FC = () => {
                 </h2>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-white/5 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-400">{results.ppmW.toFixed(2)}</div>
-                      <div className="text-sm text-slate-300">PPM Ширина</div>
-                    </div>
-                    <div className="text-center p-4 bg-white/5 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-400">{results.ppmH.toFixed(2)}</div>
-                      <div className="text-sm text-slate-300">PPM Высота</div>
-                    </div>
+                  <div className="text-center p-4 bg-white/5 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-400">{results.ppm.toFixed(3)}</div>
+                    <div className="text-sm text-slate-300">PPM</div>
                   </div>
 
                   <div className={`p-4 rounded-lg border ${
@@ -393,18 +473,28 @@ const PpmCalculator: React.FC = () => {
                     </div>
                   </div>
 
+                  {results.discrepancy > 0.05 && (
+                    <button
+                      onClick={applyOpticalFov}
+                      className="w-full px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Синхронизировать FOV с оптикой
+                    </button>
+                  )}
+
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-slate-300">Размер сенсора:</span>
-                      <span className="text-white">{results.sensorWidthMm.toFixed(2)} × {results.sensorHeightMm.toFixed(2)} мм</span>
+                      <span className="text-white">{results.sensorWidthMm.toFixed(3)} × {results.sensorHeightMm.toFixed(3)} мм</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-300">Увеличение:</span>
-                      <span className="text-white">{results.magnification.toFixed(2)}x</span>
+                      <span className="text-white">{results.magnification.toFixed(3)}x</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-300">Оптическое FOV:</span>
-                      <span className="text-white">{results.opticalFovW.toFixed(2)} мм</span>
+                      <span className="text-white">{results.opticalFovW.toFixed(3)} мм</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-300">Несоответствие:</span>
@@ -416,7 +506,7 @@ const PpmCalculator: React.FC = () => {
             )}
 
             {results && (
-              <ModuleVisualizer ppm={Math.min(results.ppmW, results.ppmH)} />
+              <ModuleVisualizer ppm={results.ppm} />
             )}
           </div>
         </div>

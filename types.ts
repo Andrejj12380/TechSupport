@@ -240,6 +240,7 @@ export interface CalculationResult {
   pixelsPerMmH: number;
   ppmW: number;
   ppmH: number;
+  ppm: number;
   sensorWidthMm: number;
   sensorHeightMm: number;
   magnification: number;
