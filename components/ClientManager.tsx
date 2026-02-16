@@ -143,6 +143,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const [draggedEquipId, setDraggedEquipId] = useState<number | null>(null);
   const [l3Provider, setL3Provider] = useState<string>('');
   const [supportFilter, setSupportFilter] = useState<'all' | 'active' | 'expired'>('all');
+  const [showSitesTiles, setShowSitesTiles] = useState(false);
+  const [showLinesTiles, setShowLinesTiles] = useState(false);
 
   const [isLoading, setIsLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -415,6 +417,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
       await api.deleteLine(id);
       if (selectedSite) {
         setLines(await api.getLines(selectedSite.id));
+        setAllLines(await api.getAllLines());
         setSelectedLine(null);
       }
     }
@@ -427,6 +430,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
       const newLine = await api.duplicateLine(line.id);
       const updatedLines = await api.getLines(selectedSite.id);
       setLines(updatedLines);
+      setAllLines(await api.getAllLines());
       // Auto-select the newly created line and load its related data
       await handleLineSelect(newLine);
       setToastMessage(`Линия продублирована: ${newLine.name}`);
@@ -444,15 +448,30 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
     try {
       if (modal?.type === 'client') {
-        modal.data ? await api.updateClient(modal.data.id, payload) : await api.addClient(payload);
+        const result = modal.data ? await api.updateClient(modal.data.id, payload) : await api.addClient(payload);
         await loadClients();
+        if (selectedClient && (modal.data?.id === selectedClient.id || !modal.data)) {
+          setSelectedClient(result);
+        }
       } else if (modal?.type === 'site' && selectedClient) {
-        modal.data ? await api.updateSite(modal.data.id, payload) : await api.addSite({ ...payload, client_id: selectedClient.id });
-        setSites(await api.getSites(selectedClient.id));
+        let updatedSites: Site[];
+        if (modal.data) {
+          await api.updateSite(modal.data.id, payload);
+          updatedSites = await api.getSites(selectedClient.id);
+          setSites(updatedSites);
+          setSelectedSite(updatedSites.find(s => s.id === modal.data.id) ?? null);
+        } else {
+          const newSite = await api.addSite({ ...payload, client_id: selectedClient.id });
+          updatedSites = await api.getSites(selectedClient.id);
+          setSites(updatedSites);
+          setSelectedSite(updatedSites.find(s => s.id === newSite.id) ?? null);
+        }
       } else if (modal?.type === 'line' && selectedSite) {
         modal.data ? await api.updateLine(modal.data.id, payload) : await api.addLine({ ...payload, site_id: selectedSite.id });
         const updatedLines = await api.getLines(selectedSite.id);
         setLines(updatedLines);
+        // Refresh allLines for stats/tiles
+        setAllLines(await api.getAllLines());
         // If we were editing the currently selected line, update its display state
         if (selectedLine && modal.data?.id === selectedLine.id) {
           setSelectedLine(updatedLines.find(l => l.id === selectedLine.id) || null);
@@ -485,7 +504,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         } else {
           await api.addSiteContact(selectedSite.id, payload);
         }
-        setSites(await api.getSites(selectedClient!.id));
+        const updatedSites = await api.getSites(selectedClient!.id);
+        setSites(updatedSites);
+        setSelectedSite(updatedSites.find(s => s.id === selectedSite.id) ?? selectedSite);
       }
       setModal(null);
       setEquipSearchQuery('');
@@ -675,7 +696,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
               </div>
 
               {selectedClient?.id === c.id && (
-                <div className="ml-4 mt-1 space-y-0.5 border-l-2 pl-2 border-slate-100 dark:border-slate-700">
+                <div id="client-sites-tree" className="ml-4 mt-1 space-y-0.5 border-l-2 pl-2 border-slate-100 dark:border-slate-700">
                   {sites.filter(s => {
                     if (supportFilter === 'all') return true;
                     // Check if any line in this site matches the filter
@@ -797,7 +818,20 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Адрес</div>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{selectedSite.address || 'Не указано'}</p>
+                      {selectedSite.address ? (
+                        <a
+                          href={`https://yandex.ru/maps/?text=${encodeURIComponent(selectedSite.address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-[#FF5B00] hover:text-[#e65200] hover:underline font-medium transition-colors inline-flex items-center gap-1.5"
+                          title="Открыть на Яндекс.Картах"
+                        >
+                          {selectedSite.address}
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 normal-case font-normal">→ карта</span>
+                        </a>
+                      ) : (
+                        <p className="text-sm text-slate-700 dark:text-slate-300">Не указано</p>
+                      )}
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">L3 Маркировка</div>
@@ -971,19 +1005,99 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 <div className="bg-slate-50 dark:bg-slate-800/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Статистика</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center">
-                      <div className="text-2xl font-black text-slate-800 dark:text-slate-200">{sites.length}</div>
+                    <button
+                      type="button"
+                      onClick={() => { setShowSitesTiles(!showSitesTiles); setShowLinesTiles(false); }}
+                      className={`p-4 rounded-2xl border text-center transition-all cursor-pointer ${showSitesTiles ? 'bg-orange-50 border-[#FF5B00] dark:bg-orange-950/20 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00]/60'}`}
+                    >
+                      <div className={`text-2xl font-black ${showSitesTiles ? 'text-[#FF5B00]' : 'text-slate-800 dark:text-slate-200'}`}>{sites.length}</div>
                       <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">Площадок</div>
-                    </div>
-                    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center">
-                      <div className="text-2xl font-black text-slate-800 dark:text-slate-200">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowLinesTiles(!showLinesTiles); setShowSitesTiles(false); }}
+                      className={`p-4 rounded-2xl border text-center transition-all cursor-pointer ${showLinesTiles ? 'bg-orange-50 border-[#FF5B00] dark:bg-orange-950/20 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00]/60'}`}
+                    >
+                      <div className={`text-2xl font-black ${showLinesTiles ? 'text-[#FF5B00]' : 'text-slate-800 dark:text-slate-200'}`}>
                         {sites.reduce((acc, site) => acc + (site.line_count || 0), 0)}
                       </div>
                       <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">Линий</div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sites Tiles (Smooth Reveal) */}
+              <div className={`expand-grid mt-6 ${showSitesTiles ? 'is-open' : ''}`}>
+                <div className="expand-inner">
+                  <div className="space-y-4 pb-6 px-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Выберите площадку</h3>
+                      <button onClick={() => setShowSitesTiles(false)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Скрыть</button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {sites.map(s => (
+                        <button
+                          key={s.id}
+                          onClick={() => { handleSiteSelect(s); setShowSitesTiles(false); }}
+                          className="group p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-[#FF5B00] hover:shadow-xl transition-all text-left relative overflow-hidden"
+                        >
+                          <div className="absolute top-0 right-0 w-2 h-full bg-[#FF5B00] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{s.name}</div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest font-black line-clamp-1">{s.address || 'Адрес не указан'}</div>
+                          <div className="flex items-center gap-3 mt-3">
+                            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 py-0.5 bg-slate-50 dark:bg-slate-800 rounded">
+                              {s.line_count || 0} линий
+                            </div>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Lines Tiles (Smooth Reveal) */}
+              <div className={`expand-grid mt-6 ${showLinesTiles ? 'is-open' : ''}`}>
+                <div className="expand-inner">
+                  <div className="space-y-6 pb-6 px-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Производственные линии в разрезе площадок</h3>
+                      <button onClick={() => setShowLinesTiles(false)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Скрыть</button>
+                    </div>
+                    <div className="space-y-8">
+                      {sites.map(s => (
+                        <div key={s.id} className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{s.name}</h4>
+                            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {(allLines.filter(l => l.site_id === s.id)).map(l => (
+                              <button
+                                key={l.id}
+                                onClick={() => { handleLineSelect(l); setShowLinesTiles(false); }}
+                                className="group p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl border border-transparent hover:border-emerald-400/50 hover:bg-white dark:hover:bg-slate-800 transition-all text-left flex items-center justify-between"
+                              >
+                                <div>
+                                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-emerald-500 transition-colors">{l.name}</div>
+                                  <div className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">{l.cabinet_number || 'Шкаф не указ.'}</div>
+                                </div>
+                                <div className={`w-1.5 h-1.5 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(l).status) ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-300'}`}></div>
+                              </button>
+                            ))}
+                            {(!allLines.some(l => l.site_id === s.id)) && (
+                              <div className="col-span-full py-4 text-center text-slate-300 italic text-[10px] uppercase tracking-widest">Нет линий на этой площадке</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           )
         ) : (

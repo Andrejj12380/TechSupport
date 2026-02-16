@@ -499,9 +499,9 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
                         <MessageSquare className="w-8 h-8 text-[#FF5B00]" />
@@ -510,30 +510,30 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <p className="text-slate-500 font-medium mt-1">Фиксация и контроль техподдержки клиентов</p>
                 </div>
 
-                {isAuthorized && (
-                    <button
-                        onClick={() => { resetForm(); setIsModalOpen(true); }}
-                        className="bg-[#FF5B00] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#e65200] transition-all shadow-lg shadow-[#FF5B00]/25 active:scale-95"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Новое обращение
-                    </button>
-                )}
+                <div className="flex items-center gap-3 self-start md:self-auto">
+                    {user?.role === 'admin' && (
+                        <button
+                            onClick={openCategoryModal}
+                            className="px-4 py-2 rounded-2xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all text-sm"
+                        >
+                            Категории проблем
+                        </button>
+                    )}
+
+                    {isAuthorized && (
+                        <button
+                            onClick={() => { resetForm(); setIsModalOpen(true); }}
+                            className="bg-[#FF5B00] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#e65200] transition-all shadow-lg shadow-[#FF5B00]/25 active:scale-95"
+                        >
+                            <Plus className="w-5 h-5" />
+                            Новое обращение
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {user?.role === 'admin' && (
-                <div className="flex justify-end mb-6">
-                    <button
-                        onClick={openCategoryModal}
-                        className="px-4 py-2 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all"
-                    >
-                        Категории проблем
-                    </button>
-                </div>
-            )}
-
             {/* Filters & Search */}
-            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap items-center gap-4">
+            <div className="bg-white rounded-3xl p-3 md:p-4 shadow-sm border border-slate-100 mb-4 flex flex-wrap items-center gap-3 md:gap-4">
                 <div className="relative flex-1 min-w-[200px] sm:min-w-[300px]">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
@@ -541,7 +541,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                         placeholder="Поиск по проблеме, клиенту или контакту..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-slate-900 font-medium focus:ring-2 focus:ring-[#FF5B00]/20 transition-all"
+                        className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-slate-900 font-medium focus:ring-2 focus:ring-[#FF5B00]/20 transition-all"
                     />
                 </div>
 
@@ -550,7 +550,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <select
                         value={filterClient}
                         onChange={(e) => setFilterClient(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-0 flex-1 sm:flex-none sm:min-w-[180px] w-full sm:w-auto text-sm"
+                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-0 flex-1 sm:flex-none sm:min-w-[180px] w-full sm:w-auto text-sm"
                     >
                         <option value="">Все клиенты</option>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -559,7 +559,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
+                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
                     >
                         <option value="">Все статусы</option>
                         <option value="in_progress">В работе</option>
@@ -571,7 +571,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
+                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
                     >
                         <option value="">Все категории</option>
                         {ticketCategories.map(cat => (
@@ -583,21 +583,21 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                         type="date"
                         value={filterReportedFrom}
                         onChange={(e) => setFilterReportedFrom(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
+                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
                         title="Дата обращения: с"
                     />
                     <input
                         type="date"
                         value={filterReportedTo}
                         onChange={(e) => setFilterReportedTo(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
+                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
                         title="Дата обращения: по"
                     />
 
                     <select
                         value={sortDateMode}
                         onChange={(e) => setSortDateMode(e.target.value as any)}
-                        className="bg-slate-50 border-none rounded-2xl py-3 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[220px] w-full sm:w-auto"
+                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[200px] w-full sm:w-auto"
                         title="Сортировка"
                     >
                         <option value="reported_at">Сортировать по дате обращения</option>

@@ -213,3 +213,39 @@ export interface SupportTicket {
   line_paid_support_start?: string;
   line_paid_support_end?: string;
 }
+
+export interface CameraParams {
+  resolutionWidth: number;
+  resolutionHeight: number;
+  fovWidth: number;
+  fovHeight: number;
+  pixelSizeUm: number;
+  distanceMm: number;
+  moduleSizeMm: number;
+  lensFocalLengthMm: number;
+}
+
+export interface CameraPreset {
+  id: number;
+  name: string;
+  resolution_width: number;
+  resolution_height: number;
+  pixel_size_um: number;
+  has_built_in_lens: boolean;
+  lens_focal_length_mm?: number | null;
+}
+
+export interface CalculationResult {
+  pixelsPerMmW: number;
+  pixelsPerMmH: number;
+  ppmW: number;
+  ppmH: number;
+  sensorWidthMm: number;
+  sensorHeightMm: number;
+  magnification: number;
+  isReliable: boolean;
+  reliabilityStatus: 'low' | 'acceptable' | 'stable';
+  statusMessage: string;
+  opticalFovW: number;
+  discrepancy: number;
+}

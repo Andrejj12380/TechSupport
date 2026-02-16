@@ -496,6 +496,31 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  // Camera Presets
+  async getCameraPresets(): Promise<CameraPreset[]> {
+    return this.request('/camera-presets');
+  }
+
+  async addCameraPreset(data: Partial<CameraPreset>) {
+    return this.request('/camera-presets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCameraPreset(id: number, data: Partial<CameraPreset>) {
+    return this.request(`/camera-presets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCameraPreset(id: number) {
+    return this.request(`/camera-presets/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const api = new ApiService();

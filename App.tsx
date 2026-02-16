@@ -5,15 +5,16 @@ import Login from './components/Login';
 import UserManager from './components/UserManager';
 import KnowledgeBase from './components/KnowledgeBase';
 import SupportTicketManager from './components/SupportTicketManager';
+import PpmCalculator from './components/PpmCalculator';
 import UserAvatar from './components/UserAvatar';
 import { ToastProvider } from './components/Toast';
 import { IconDashboard, IconUsers, IconSearch, IconLogs, IconBook, IconUserSettings } from './components/Icons';
-import { MessageSquare, Moon, Sun, Menu, X, ChevronRight } from 'lucide-react';
+import { MessageSquare, Moon, Sun, Menu, X, ChevronRight, Calculator } from 'lucide-react';
 import { AuditLog, User } from './types';
 import { api } from './services/api';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'logs' | 'search' | 'kb' | 'users' | 'tickets'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'logs' | 'search' | 'kb' | 'users' | 'tickets' | 'ppm-calculator'>('dashboard');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -64,6 +65,7 @@ const App: React.FC = () => {
         case 'users': return 'users';
         case 'logs': return 'logs';
         case 'search': return 'search';
+        case 'ppm-calculator': return 'ppm-calculator';
         default: return 'dashboard';
       }
     };
@@ -133,6 +135,10 @@ const App: React.FC = () => {
     } else if (result.type === 'Линия') {
       window.history.pushState({ tab: 'clients' }, '', `/clients?client=${result.raw.client_id}&site=${result.raw.site_id}&line=${result.id}`);
       setActiveTab('clients');
+    } else if (result.type === 'Контакт' && result.raw) {
+      const r = result.raw;
+      window.history.pushState({ tab: 'clients' }, '', `/clients?client=${r.client_id}&site=${r.site_id}`);
+      setActiveTab('clients');
     } else if (result.type === 'Оборудование' && result.raw) {
       // For equipment, navigate with client, site, line, and equipment IDs from raw data
       const e = result.raw;
@@ -140,6 +146,9 @@ const App: React.FC = () => {
       if (e.line_id) params.set('line', e.line_id);
       if (e.id) params.set('equipment', e.id);
       window.history.pushState({ tab: 'clients' }, '', `/clients?${params.toString()}`);
+      setActiveTab('clients');
+    } else if (result.type === 'Контакт') {
+      window.history.pushState({ tab: 'clients' }, '', `/clients?client=${result.raw.client_id}&site=${result.raw.site_id}`);
       setActiveTab('clients');
     } else {
       // Fallback: just go to clients
@@ -290,6 +299,26 @@ const App: React.FC = () => {
                 </div>
               )}
             </button>
+            {(user.role === 'admin' || user.role === 'engineer') && (
+              <button
+                onClick={() => {
+                  window.history.pushState({ tab: 'ppm-calculator' }, '', '/ppm-calculator');
+                  setActiveTab('ppm-calculator');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'ppm-calculator' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              >
+                <Calculator className={`w-5 h-5 shrink-0 ${activeTab === 'ppm-calculator' ? 'text-[#FF5B00]' : ''}`} />
+                <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                  PPM Калькулятор
+                </span>
+                {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                    PPM Калькулятор
+                  </div>
+                )}
+              </button>
+            )}
             {user.role === 'admin' && (
               <button
                 onClick={() => {
@@ -383,6 +412,7 @@ const App: React.FC = () => {
               {activeTab === 'clients' && <ClientManager user={user} />}
               {activeTab === 'kb' && <KnowledgeBase user={user} />}
               {activeTab === 'tickets' && <SupportTicketManager user={user} />}
+              {activeTab === 'ppm-calculator' && (user.role === 'admin' || user.role === 'engineer') && <PpmCalculator />}
               {activeTab === 'users' && user.role === 'admin' && <UserManager currentUser={user} />}
               {activeTab === 'logs' && user.role === 'admin' && (
                 <div className="space-y-4">
@@ -434,7 +464,8 @@ const App: React.FC = () => {
                           <div className="flex items-center justify-between mb-4">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${res.type === 'Клиент' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' :
                               res.type === 'Линия' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' :
-                                'bg-amber-50 dark:bg-amber-900/30 text-amber-600'
+                                res.type === 'Контакт' ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600' :
+                                  'bg-amber-50 dark:bg-amber-900/30 text-amber-600'
                               }`}>
                               {res.type}
                             </span>

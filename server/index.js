@@ -147,6 +147,47 @@ async function ensureTicketCategories() {
   }
 }
 
+async function ensureCameraPresets() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS camera_presets (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        resolution_width INTEGER NOT NULL,
+        resolution_height INTEGER NOT NULL,
+        pixel_size_um NUMERIC NOT NULL,
+        has_built_in_lens BOOLEAN DEFAULT false,
+        lens_focal_length_mm NUMERIC,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const countRes = await pool.query('SELECT COUNT(*)::int AS cnt FROM camera_presets');
+    if (countRes.rows[0].cnt === 0) {
+      const defaultPresets = [
+        { name: "Hikrobot MV-CA016-10GM (1.6 MP)", resW: 1440, resH: 1080, pixel: 3.45, lens: false },
+        { name: "Hikrobot MV-CA050-20GM (5 MP)", resW: 2448, resH: 2048, pixel: 3.45, lens: false },
+        { name: "Basler ace acA1920-40gm (2.3 MP)", resW: 1920, resH: 1200, pixel: 5.86, lens: false },
+        { name: "Smart Code Reader (Fixed 6mm)", resW: 1280, resH: 1024, pixel: 4.8, lens: true, focal: 6 },
+        { name: "Smart Code Reader (Fixed 12mm)", resW: 1280, resH: 1024, pixel: 4.8, lens: true, focal: 12 },
+        { name: "High Res Pro (20 MP)", resW: 5472, resH: 3648, pixel: 2.4, lens: false }
+      ];
+
+      for (const p of defaultPresets) {
+        await pool.query(
+          `INSERT INTO camera_presets (name, resolution_width, resolution_height, pixel_size_um, has_built_in_lens, lens_focal_length_mm)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [p.name, p.resW, p.resH, p.pixel, p.lens, p.focal || null]
+        );
+      }
+      console.log('Seeded default camera presets');
+    }
+  } catch (err) {
+    console.error('Error ensuring camera presets:', err);
+  }
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -292,6 +333,65 @@ app.delete('/api/ticket-categories/:id', authenticateToken, authorize(['admin'])
     res.json({ success: true, mode: 'deleted' });
   } catch (err) {
     console.error('Error deleting ticket category:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Camera Presets API
+app.get('/api/camera-presets', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM camera_presets ORDER BY name ASC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching camera presets:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/camera-presets', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  try {
+    const { name, resolution_width, resolution_height, pixel_size_um, has_built_in_lens, lens_focal_length_mm } = req.body;
+    const result = await pool.query(
+      `INSERT INTO camera_presets (name, resolution_width, resolution_height, pixel_size_um, has_built_in_lens, lens_focal_length_mm)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [name, Number(resolution_width), Number(resolution_height), parseFloat(pixel_size_um), has_built_in_lens, lens_focal_length_mm ? parseFloat(lens_focal_length_mm) : null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating camera preset:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/camera-presets/:id', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, resolution_width, resolution_height, pixel_size_um, has_built_in_lens, lens_focal_length_mm } = req.body;
+    const result = await pool.query(
+      `UPDATE camera_presets
+       SET name = $1, resolution_width = $2, resolution_height = $3, pixel_size_um = $4,
+           has_built_in_lens = $5, lens_focal_length_mm = $6, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7
+       RETURNING *`,
+      [name, Number(resolution_width), Number(resolution_height), parseFloat(pixel_size_um), has_built_in_lens, lens_focal_length_mm ? parseFloat(lens_focal_length_mm) : null, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Preset not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating camera preset:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/camera-presets/:id', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM camera_presets WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Preset not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting camera preset:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -1082,6 +1182,24 @@ app.get('/api/search', authenticateToken, async (req, res) => {
       raw: e
     }));
 
+    // Contacts
+    const contacts = await pool.query(
+      `SELECT sc.*, s.name as site_name, c.name as client_name, c.id as client_id
+       FROM site_contacts sc
+       JOIN sites s ON sc.site_id = s.id
+       JOIN clients c ON s.client_id = c.id
+       WHERE sc.fio ILIKE $1 OR sc.phone ILIKE $1 OR sc.email ILIKE $1
+          OR sc.position ILIKE $1 OR NULLIF(TRIM(sc.comments), '') ILIKE $1
+       ORDER BY sc.fio LIMIT 10`,
+      [term]
+    );
+    contacts.rows.forEach(c => results.push({
+      type: 'Контакт',
+      name: [c.fio, c.position].filter(Boolean).join(', '),
+      id: c.id,
+      raw: c
+    }));
+
     res.json(results);
   } catch (err) {
     console.error(err);
@@ -1733,7 +1851,7 @@ app.post('/api/tickets/:id/work/pause', authenticateToken, authorize(['admin', '
 
 async function ensureTicketTimestamps() {
   try {
-    const res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'support_tickets' AND column_name IN ('reported_at','resolved_at')");
+    const res = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'support_tickets' AND column_name IN ('reported_at','resolved_at','work_started_at','total_work_minutes')");
     const existing = res.rows.map(r => r.column_name);
     const queries = [];
 
@@ -1940,6 +2058,7 @@ ensureTicketCategories()
   .then(() => ensureSiteL3Provider())
   .then(() => ensureTicketStatusMigration())
   .then(() => ensureSupportTicketStatusConstraint())
+  .then(() => ensureCameraPresets())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
