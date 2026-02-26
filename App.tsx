@@ -9,7 +9,7 @@ import PpmCalculator from './components/PpmCalculator';
 import UserAvatar from './components/UserAvatar';
 import { ToastProvider } from './components/Toast';
 import { IconDashboard, IconUsers, IconSearch, IconLogs, IconBook, IconUserSettings } from './components/Icons';
-import { MessageSquare, Moon, Sun, Menu, X, ChevronRight, Calculator } from 'lucide-react';
+import { MessageSquare, Moon, Sun, Menu, X, ChevronRight, Calculator, Workflow } from 'lucide-react';
 import { AuditLog, User } from './types';
 import { api } from './services/api';
 
@@ -462,11 +462,12 @@ const App: React.FC = () => {
                       >
                         <div className="relative z-10">
                           <div className="flex items-center justify-between mb-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${res.type === 'Клиент' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' :
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${res.type === 'Клиент' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' :
                               res.type === 'Линия' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' :
                                 res.type === 'Контакт' ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600' :
                                   'bg-amber-50 dark:bg-amber-900/30 text-amber-600'
                               }`}>
+                              {res.type === 'Линия' && <Workflow className="w-3 h-3" />}
                               {res.type}
                             </span>
                             <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

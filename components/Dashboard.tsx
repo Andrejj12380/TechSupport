@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Factory, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, ChevronRight } from 'lucide-react';
+import { Factory, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, ChevronRight, Workflow } from 'lucide-react';
 import { api } from '../services/api';
 import { Client, ProductionLine, SupportTicket } from '../types';
 
@@ -214,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-[#FF5B00]/40 transition-all hover:-translate-y-1 group active:scale-95"
         >
           <div className="w-12 h-12 bg-[#FF5B00]/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Factory className="w-6 h-6 text-[#FF5B00]" strokeWidth={2.5} />
+            <Workflow className="w-6 h-6 text-[#FF5B00]" strokeWidth={2.5} />
           </div>
           <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Всего клиентов</p>
           <p className="text-4xl font-black text-slate-900 dark:text-slate-100">{clients.length}</p>
