@@ -67,6 +67,20 @@ const PpmCalculator: React.FC = () => {
     }));
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numValue = parseFloat(value) || 0;
+
+    setParams(prev => ({ ...prev, [name]: numValue }));
+
+    // If user manually changes resolution/pixel size/lens, switch to custom preset
+    if (['resolutionWidth', 'resolutionHeight', 'pixelSizeUm', 'lensFocalLengthMm'].includes(name)) {
+      if (selectedPresetId !== null) {
+        setSelectedPresetId(null);
+      }
+    }
+  };
+
   const calculate = useCallback(() => {
     const { resolutionWidth, resolutionHeight, fovWidth, fovHeight, pixelSizeUm, moduleSizeMm, distanceMm, lensFocalLengthMm } = params;
 
@@ -185,8 +199,8 @@ const PpmCalculator: React.FC = () => {
       const aspectRatio = params.resolutionWidth / params.resolutionHeight;
       setParams(prev => ({
         ...prev,
-        fovWidth: results.opticalFovW,
-        fovHeight: results.opticalFovW / aspectRatio
+        fovWidth: Math.round(results.opticalFovW),
+        fovHeight: Math.round(results.opticalFovW / aspectRatio)
       }));
     }
   };
@@ -240,11 +254,10 @@ const PpmCalculator: React.FC = () => {
                 {presets.map((preset) => (
                   <div
                     key={preset.id}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                      selectedPresetId === preset.id
+                    className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedPresetId === preset.id
                         ? 'bg-blue-500/20 border-blue-400/50'
                         : 'bg-white/5 border-white/10 hover:bg-white/10'
-                    }`}
+                      }`}
                     onClick={() => handlePresetSelect(preset)}
                   >
                     <div className="flex items-center justify-between">
@@ -277,168 +290,123 @@ const PpmCalculator: React.FC = () => {
             {/* Parameters Form */}
             <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl">
               <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                <Ruler className="w-5 h-5" />
-                Параметры расчета
+                <Ruler className="w-5 h-5 text-blue-400" />
+                1. Камера и Код
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Разрешение камеры
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-6">
+                <InputGroup
+                  label="Разрешение матрицы"
+                  inputs={[
+                    { name: 'resolutionWidth', value: params.resolutionWidth, icon: <Maximize className="w-4 h-4" /> },
+                    { name: 'resolutionHeight', value: params.resolutionHeight, icon: <Maximize className="w-4 h-4" /> }
+                  ]}
+                  onChange={handleInputChange}
+                  unit="px"
+                />
+
+                <InputGroup
+                  label="Поле обзора (FOV)"
+                  inputs={[
+                    { name: 'fovWidth', value: params.fovWidth, icon: <Ruler className="w-4 h-4" /> },
+                    { name: 'fovHeight', value: params.fovHeight, icon: <Ruler className="w-4 h-4" /> }
+                  ]}
+                  onChange={handleInputChange}
+                  unit="мм"
+                />
+
+                <SingleInput
+                  label="Размер модуля DM кода"
+                  name="moduleSizeMm"
+                  value={params.moduleSizeMm}
+                  onChange={handleInputChange}
+                  unit="мм"
+                  icon={<Zap className="w-4 h-4" />}
+                />
+
+                {/* Module Size Calculator */}
+                <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calculator className="w-4 h-4 text-blue-400" />
+                    <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Калькулятор размера модуля</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="text-[10px] text-slate-400 uppercase font-black block mb-1">Размер кода (мм)</label>
                       <input
                         type="number"
-                        value={params.resolutionWidth}
-                        onChange={(e) => { setSelectedPresetId(null); setParams(prev => ({ ...prev, resolutionWidth: Number(e.target.value) })) }}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Ширина"
+                        value={calcTotalSize || ''}
+                        onChange={(e) => setCalcTotalSize(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Напр. 12"
                       />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 uppercase font-black block mb-1">Кол-во модулей</label>
                       <input
                         type="number"
-                        value={params.resolutionHeight}
-                        onChange={(e) => { setSelectedPresetId(null); setParams(prev => ({ ...prev, resolutionHeight: Number(e.target.value) })) }}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Высота"
+                        value={calcModuleCount || ''}
+                        onChange={(e) => setCalcModuleCount(parseFloat(e.target.value) || 1)}
+                        className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Напр. 36"
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Размер пикселя (μm)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={params.pixelSizeUm}
-                      onChange={(e) => { const val = parseFloat(e.target.value); setSelectedPresetId(null); setParams(prev => ({ ...prev, pixelSizeUm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Фокусное расстояние объектива (мм)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={params.lensFocalLengthMm}
-                      onChange={(e) => { const val = parseFloat(e.target.value); setSelectedPresetId(null); setParams(prev => ({ ...prev, lensFocalLengthMm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Поле зрения (мм)
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        value={params.fovWidth}
-                        onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, fovWidth: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Ширина"
-                      />
-                      <input
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        value={params.fovHeight}
-                        onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, fovHeight: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Высота"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Расстояние до объекта (мм)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={params.distanceMm}
-                      onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, distanceMm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Размер модуля DataMatrix (мм)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={params.moduleSizeMm}
-                      onChange={(e) => { const val = parseFloat(e.target.value); setParams(prev => ({ ...prev, moduleSizeMm: isNaN(val) ? 0 : Math.round(val * 1000) / 1000 })) }}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  {calculatedModuleSize > 0 && (
+                    <button
+                      onClick={applyCalculatedModuleSize}
+                      className="w-full py-2 bg-blue-500/20 text-blue-400 rounded-lg text-sm font-bold hover:bg-blue-500/30 transition-colors flex items-center justify-center gap-2 border border-blue-500/30"
+                    >
+                      Применить {calculatedModuleSize.toFixed(3)} мм
+                    </button>
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* Module Size Calculator */}
-              <div className="mt-6 p-4 bg-white/5 rounded-lg">
-                <h3 className="text-lg font-medium text-white mb-4">Калькулятор размера модуля</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Общий размер кода (мм)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={calcTotalSize}
-                      onChange={(e) => { const val = parseFloat(e.target.value); setCalcTotalSize(isNaN(val) ? 0 : Math.round(val * 1000) / 1000) }}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+            {/* Optical Assistant */}
+            <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl">
+              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+                <Box className="w-5 h-5 text-blue-400" />
+                2. Оптический помощник
+              </h2>
+              <div className="space-y-6">
+                <SingleInput
+                  label="Фокусное расстояние"
+                  name="lensFocalLengthMm"
+                  value={params.lensFocalLengthMm}
+                  onChange={handleInputChange}
+                  unit="мм"
+                  icon={<Link className="w-4 h-4" />}
+                />
+                <SingleInput
+                  label="Дистанция (W.D.)"
+                  name="distanceMm"
+                  value={params.distanceMm}
+                  onChange={handleInputChange}
+                  unit="мм"
+                  icon={<Focus className="w-4 h-4" />}
+                />
+                <SingleInput
+                  label="Размер пикселя"
+                  name="pixelSizeUm"
+                  value={params.pixelSizeUm}
+                  onChange={handleInputChange}
+                  unit="µm"
+                  icon={<Cpu className="w-4 h-4" />}
+                />
+
+                <div className="pt-2">
+                  <div className={`p-4 rounded-xl border text-sm mb-4 ${results && results.discrepancy > 0.05 ? 'bg-orange-500/10 border-orange-500/30 text-orange-200' : 'bg-white/5 border-white/10 text-slate-400'}`}>
+                    Оптика дает FOV: <span className="font-bold text-white">{results?.opticalFovW.toFixed(1)} мм</span>.
+                    {results && results.discrepancy > 0.05 && " Ваши данные отличаются от физически возможных."}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Количество модулей
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={calcModuleCount}
-                      onChange={(e) => setCalcModuleCount(Number(e.target.value) || 1)}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Рассчитанный размер модуля (мм)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={calculatedModuleSize.toFixed(3)}
-                      readOnly
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end mt-4">
                   <button
-                    onClick={applyCalculatedModuleSize}
-                    className="px-6 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-colors"
+                    onClick={applyOpticalFov}
+                    className="w-full py-3 px-4 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-xl text-sm font-bold transition-all border border-blue-400/30 flex items-center justify-center gap-2"
                   >
-                    Применить
+                    <Zap className="w-4 h-4" />
+                    Синхронизировать FOV с оптикой
                   </button>
                 </div>
               </div>
@@ -460,15 +428,14 @@ const PpmCalculator: React.FC = () => {
                     <div className="text-sm text-slate-300">PPM</div>
                   </div>
 
-                  <div className={`p-4 rounded-lg border ${
-                    results.reliabilityStatus === 'stable' ? 'bg-green-500/20 border-green-400/50' :
-                    results.reliabilityStatus === 'acceptable' ? 'bg-yellow-500/20 border-yellow-400/50' :
-                    'bg-red-500/20 border-red-400/50'
-                  }`}>
+                  <div className={`p-4 rounded-lg border ${results.reliabilityStatus === 'stable' ? 'bg-green-500/20 border-green-400/50' :
+                      results.reliabilityStatus === 'acceptable' ? 'bg-yellow-500/20 border-yellow-400/50' :
+                        'bg-red-500/20 border-red-400/50'
+                    }`}>
                     <div className="flex items-center gap-2">
                       {results.reliabilityStatus === 'stable' ? <CheckCircle2 className="w-5 h-5 text-green-400" /> :
-                       results.reliabilityStatus === 'acceptable' ? <AlertCircle className="w-5 h-5 text-yellow-400" /> :
-                       <X className="w-5 h-5 text-red-400" />}
+                        results.reliabilityStatus === 'acceptable' ? <AlertCircle className="w-5 h-5 text-yellow-400" /> :
+                          <X className="w-5 h-5 text-red-400" />}
                       <span className="font-medium text-white">{results.statusMessage}</span>
                     </div>
                   </div>
@@ -508,6 +475,25 @@ const PpmCalculator: React.FC = () => {
             {results && (
               <ModuleVisualizer ppm={results.ppm} />
             )}
+
+            {/* Educational Info */}
+            <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl">
+              <h3 className="text-sm font-black text-blue-400 mb-4 uppercase tracking-widest">Как это работает?</h3>
+              <div className="text-xs text-slate-300 space-y-4 leading-relaxed">
+                <p>
+                  <strong className="text-white">PPM (Pixels Per Module)</strong> — это количество пикселей камеры, приходящихся на один модуль кода.
+                </p>
+                <p>
+                  Для надежного считывания стандарты требуют <span className="text-green-400 font-bold">PPM &gt; 3.0</span>.
+                  Значения <span className="text-yellow-400 font-bold">2.5 – 3.0</span> допустимы при качественной настройке.
+                  При <span className="text-red-400 font-bold">PPM &lt; 2.5</span> декодирование становится нестабильным.
+                </p>
+                <hr className="border-white/10" />
+                <p className="italic text-slate-400">
+                  Если вы увеличиваете разрешение, но PPM не растет — значит ваша оптика "размазывает" дополнительные пиксели по большему полю обзора. Чтобы поднять PPM, нужно либо уменьшить FOV, либо уменьшить размер пикселя в микронах.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -616,5 +602,64 @@ const PpmCalculator: React.FC = () => {
     </div>
   );
 };
+
+const InputGroup: React.FC<{
+  label: string,
+  inputs: { name: string, value: number, icon: React.ReactNode }[],
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  unit: string
+}> = ({ label, inputs, onChange, unit }) => (
+  <div className="space-y-3">
+    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+    <div className="flex gap-3">
+      {inputs.map((input, idx) => (
+        <div key={input.name} className="relative flex-1">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            {input.icon}
+          </div>
+          <input
+            type="number"
+            name={input.name}
+            value={input.value}
+            onChange={onChange}
+            className="w-full bg-white/10 border border-white/20 rounded-xl py-3 pl-10 pr-10 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/20 transition-all outline-none"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 uppercase">
+            {idx === 0 ? (inputs.length > 1 ? 'W' : unit) : 'H'}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const SingleInput: React.FC<{
+  label: string,
+  name: string,
+  value: number,
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  unit: string,
+  icon: React.ReactNode
+}> = ({ label, name, value, onChange, unit, icon }) => (
+  <div className="space-y-3">
+    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+    <div className="relative">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+        {icon}
+      </div>
+      <input
+        type="number"
+        name={name}
+        value={value}
+        onChange={onChange}
+        step="0.001"
+        className="w-full bg-white/10 border border-white/20 rounded-xl py-3 pl-10 pr-12 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/20 transition-all outline-none"
+      />
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 uppercase">
+        {unit}
+      </span>
+    </div>
+  </div>
+);
 
 export default PpmCalculator;

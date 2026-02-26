@@ -29,7 +29,7 @@ const ModuleVisualizer: React.FC<Props> = ({ ppm }) => {
                         height: `${moduleSizeInDisplay}px`,
                     }}>
                     <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 bg-white/90 dark:bg-slate-800/90 px-1.5 py-0.5 rounded shadow-sm">
-                        {ppm.toFixed(2)} px
+                        Модуль {ppm.toFixed(2)} px
                     </span>
                 </div>
             </div>

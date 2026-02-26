@@ -139,6 +139,9 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     const [filterCategory, setFilterCategory] = useState<string>('');
     const [engineers, setEngineers] = useState<User[]>([]);
     const [sortDateMode, setSortDateMode] = useState<'reported_at' | 'created_at'>('reported_at');
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+    const activeFilterCount = [filterClient, filterStatus, filterCategory, filterReportedFrom, filterReportedTo].filter(Boolean).length;
 
     useEffect(() => {
         fetchData();
@@ -533,90 +536,124 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             </div>
 
             {/* Filters & Search */}
-            <div className="bg-white rounded-3xl p-3 md:p-4 shadow-sm border border-slate-100 mb-4 flex flex-wrap items-center gap-3 md:gap-4">
-                <div className="relative flex-1 min-w-[200px] sm:min-w-[300px]">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Поиск по проблеме, клиенту или контакту..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border-none rounded-2xl text-slate-900 font-medium focus:ring-2 focus:ring-[#FF5B00]/20 transition-all"
-                    />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                    <Filter className="w-5 h-5 text-slate-400 ml-2" />
-                    <select
-                        value={filterClient}
-                        onChange={(e) => setFilterClient(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-0 flex-1 sm:flex-none sm:min-w-[180px] w-full sm:w-auto text-sm"
-                    >
-                        <option value="">Все клиенты</option>
-                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
-                    >
-                        <option value="">Все статусы</option>
-                        <option value="in_progress">В работе</option>
-                        <option value="on_hold">В ожидании</option>
-                        <option value="solved">Решено</option>
-                        <option value="unsolved">Не решено</option>
-                    </select>
-
-                    <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[150px] w-full sm:w-auto"
-                    >
-                        <option value="">Все категории</option>
-                        {ticketCategories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                    </select>
-
-                    <input
-                        type="date"
-                        value={filterReportedFrom}
-                        onChange={(e) => setFilterReportedFrom(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
-                        title="Дата обращения: с"
-                    />
-                    <input
-                        type="date"
-                        value={filterReportedTo}
-                        onChange={(e) => setFilterReportedTo(e.target.value)}
-                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 w-full sm:w-auto"
-                        title="Дата обращения: по"
-                    />
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-3 md:p-4 shadow-sm border border-slate-100 dark:border-slate-700 mb-4">
+                {/* Row 1: Search + Sort + Filter Toggle */}
+                <div className="flex items-center gap-3">
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Поиск по проблеме, клиенту или контакту..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-[#FF5B00]/20 transition-all"
+                        />
+                    </div>
 
                     <select
                         value={sortDateMode}
                         onChange={(e) => setSortDateMode(e.target.value as any)}
-                        className="bg-slate-50 border-none rounded-2xl py-2.5 px-4 text-slate-700 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 min-w-[200px] w-full sm:w-auto"
-                        title="Сортировка"
+                        className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2.5 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 hidden sm:block"
                     >
-                        <option value="reported_at">Сортировать по дате обращения</option>
-                        <option value="created_at">Сортировать по дате добавления</option>
+                        <option value="reported_at">По дате обращения</option>
+                        <option value="created_at">По дате добавления</option>
                     </select>
+
+                    <button
+                        onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${isFiltersOpen || activeFilterCount > 0
+                                ? 'bg-[#FF5B00]/10 text-[#FF5B00] border border-[#FF5B00]/20'
+                                : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                    >
+                        <Filter className="w-4 h-4" />
+                        <span className="hidden sm:inline">Фильтры</span>
+                        {activeFilterCount > 0 && (
+                            <span className="w-5 h-5 rounded-full bg-[#FF5B00] text-white text-[10px] font-black flex items-center justify-center">
+                                {activeFilterCount}
+                            </span>
+                        )}
+                    </button>
+                </div>
+
+                {/* Row 2: Collapsible Filter Panel */}
+                <div className={`expand-grid ${isFiltersOpen ? 'is-open' : ''}`}>
+                    <div className="expand-inner">
+                        <div className="flex flex-wrap items-center gap-3 pt-3 mt-3 border-t border-slate-100 dark:border-slate-700">
+                            <select
+                                value={filterClient}
+                                onChange={(e) => setFilterClient(e.target.value)}
+                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 flex-1 min-w-[160px]"
+                            >
+                                <option value="">Все клиенты</option>
+                                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 flex-1 min-w-[140px]"
+                            >
+                                <option value="">Все статусы</option>
+                                <option value="in_progress">В работе</option>
+                                <option value="on_hold">В ожидании</option>
+                                <option value="solved">Решено</option>
+                                <option value="unsolved">Не решено</option>
+                            </select>
+
+                            <select
+                                value={filterCategory}
+                                onChange={(e) => setFilterCategory(e.target.value)}
+                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 flex-1 min-w-[140px]"
+                            >
+                                <option value="">Все категории</option>
+                                {ticketCategories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                            </select>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="date"
+                                    value={filterReportedFrom}
+                                    onChange={(e) => setFilterReportedFrom(e.target.value)}
+                                    className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20"
+                                    title="Дата с"
+                                />
+                                <span className="text-slate-300 dark:text-slate-600">—</span>
+                                <input
+                                    type="date"
+                                    value={filterReportedTo}
+                                    onChange={(e) => setFilterReportedTo(e.target.value)}
+                                    className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20"
+                                    title="Дата по"
+                                />
+                            </div>
+
+                            {activeFilterCount > 0 && (
+                                <button
+                                    onClick={() => { setFilterClient(''); setFilterStatus(''); setFilterCategory(''); setFilterReportedFrom(''); setFilterReportedTo(''); }}
+                                    className="text-xs font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors ml-auto"
+                                >
+                                    Сбросить все
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Tickets Table */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
+                <div className="overflow-x-auto relative custom-scrollbar">
+                    <table className="w-full border-collapse min-w-[1200px]">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700">
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Дата / Статус</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Клиент / Линия</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Проблема</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Линия ТП / Инженер</th>
-                                <th className="px-6 py-4 text-right text-xs font-black text-slate-400 uppercase tracking-wider">Действия</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[150px]">Дата / Статус</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[200px]">Клиент / Линия</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider min-w-[300px]">Проблема</th>
+                                <th className="px-6 py-4 text-left text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[350px]">Инженер / Работа</th>
+                                <th className="px-6 py-4 text-right text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[80px]">&nbsp;</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -627,8 +664,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     </tr>
                                 ))
                             ) : sortedTickets.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-24">
+                                <tr key="empty">
+                                    <td colSpan={5} className="px-6 py-24">
                                         <div className="flex flex-col items-center justify-center text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
                                             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800/50 rounded-3xl flex items-center justify-center mb-6 border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
                                                 <MessageSquare className="w-10 h-10 text-slate-300 dark:text-slate-600" />
@@ -641,7 +678,11 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     </td>
                                 </tr>
                             ) : sortedTickets.map((ticket) => (
-                                <tr key={ticket.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors group">
+                                <tr
+                                    key={ticket.id}
+                                    onClick={() => openEditModal(ticket)}
+                                    className="hover:bg-[#FF5B00]/5 dark:hover:bg-[#FF5B00]/10 transition-colors group cursor-pointer"
+                                >
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
                                             {getStatusIcon(ticket.status)}
@@ -649,18 +690,19 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                 <div className="text-sm font-black text-slate-900 dark:text-slate-100">
                                                     {formatSmartDate(ticket.reported_at || ticket.created_at)}
                                                 </div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter flex items-center gap-1.5 flex-wrap">
-                                                    <span>{getStatusLabel(ticket.status)}</span>
-                                                    {ticket.resolved_at && <span> • Решено: {formatSmartDate(ticket.resolved_at)}</span>}
-                                                    <span className={`px-1.5 py-0.5 rounded-md ${getTicketSupportStatus(ticket).color} border border-current opacity-70`}>
-                                                        {getTicketSupportStatus(ticket).label}
-                                                    </span>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                                                    {getStatusLabel(ticket.status)}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <div className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{ticket.client_name}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{ticket.client_name}</div>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase ${getTicketSupportStatus(ticket).color} border border-current opacity-60`}>
+                                                {getTicketSupportStatus(ticket).label}
+                                            </span>
+                                        </div>
                                         <div className="text-xs font-medium text-slate-500 dark:text-slate-400">{ticket.line_name || '—'}</div>
                                     </td>
                                     <td className="px-6 py-5 max-w-md">
@@ -668,84 +710,65 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">Контакт: {ticket.contact_name}</div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`
-                                                w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black
-                                                ${ticket.support_line === 1 ? 'bg-blue-100 text-blue-600' :
-                                                    ticket.support_line === 2 ? 'bg-purple-100 text-purple-600' :
-                                                        'bg-red-100 text-red-600'}
-                                            `}>
-                                                L{ticket.support_line}
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`
+                                                    w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black
+                                                    ${ticket.support_line === 1 ? 'bg-blue-100 text-blue-600' :
+                                                        ticket.support_line === 2 ? 'bg-purple-100 text-purple-600' :
+                                                            'bg-red-100 text-red-600'}
+                                                `}>
+                                                    L{ticket.support_line}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <UserAvatar username={ticket.engineer_name || ''} size="sm" />
+                                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{ticket.engineer_name}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <UserAvatar username={ticket.engineer_name || ''} size="sm" />
-                                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{ticket.engineer_name}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5 text-right">
-                                        <div className="flex items-center justify-end gap-3 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+
                                             {isAuthorized && !['paid', 'warranty'].includes(getTicketSupportStatus(ticket).status) && (
-                                                <div className="flex items-center gap-2 border-r border-slate-100 pr-3 mr-1">
+                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                     {ticket.work_started_at ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <button
-                                                                onClick={() => handleStopWork(ticket.id)}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all animate-pulse"
+                                                                onClick={(e) => { e.stopPropagation(); handleStopWork(ticket.id); }}
+                                                                className="flex items-center gap-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all animate-pulse"
                                                             >
                                                                 <Square className="w-3 h-3 fill-current" />
                                                                 Стоп
                                                             </button>
                                                             <button
-                                                                onClick={() => handlePauseWork(ticket.id)}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 transition-all"
+                                                                onClick={(e) => { e.stopPropagation(); handlePauseWork(ticket.id); }}
+                                                                className="flex items-center gap-1 px-2 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 transition-all"
                                                                 title="Пауза"
                                                             >
                                                                 <Pause className="w-3 h-3 fill-current" />
-                                                                Пауза
                                                             </button>
                                                         </div>
                                                     ) : (
                                                         <button
-                                                            onClick={() => handleStartWork(ticket.id)}
+                                                            onClick={(e) => { e.stopPropagation(); handleStartWork(ticket.id); }}
                                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all"
                                                         >
                                                             <Play className="w-3 h-3 fill-current" />
                                                             {ticket.status === 'on_hold' ? 'Продолжить' : 'Начать'}
                                                         </button>
                                                     )}
-                                                    {ticket.total_work_minutes > 0 && (
-                                                        <span className="text-[10px] font-bold text-slate-400">
-                                                            ⏱ {ticket.total_work_minutes} мин
-                                                        </span>
-                                                    )}
                                                 </div>
                                             )}
-                                            {isAuthorized && (
-                                                <button
-                                                    onClick={() => openEditModal(ticket)}
-                                                    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
-                                                    title="Редактировать"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-5 text-center">
+                                        <div className="flex items-center justify-center gap-2">
                                             {user?.role === 'admin' && (
                                                 <button
-                                                    onClick={() => { setDeletingTicketId(ticket.id); setIsDeleteModalOpen(true); }}
-                                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                    onClick={(e) => { e.stopPropagation(); setDeletingTicketId(ticket.id); setIsDeleteModalOpen(true); }}
+                                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                                                     title="Удалить"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             )}
-                                            <button
-                                                onClick={async () => await openEditModal(ticket)}
-                                                className="p-2 text-slate-400 hover:text-[#FF5B00] hover:bg-[#FF5B00]/5 rounded-xl transition-all"
-                                                title="Посмотреть детали"
-                                            >
-                                                <ChevronRight className="w-4 h-4" />
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
