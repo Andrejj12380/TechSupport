@@ -675,7 +675,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
               return clientLines.some(l => getLineStatus(l).status === 'expired');
             }
             return true;
-          }).map(c => (
+          }).sort((a, b) => a.name.localeCompare(b.name, 'ru')).map(c => (
             <div key={c.id} className={`group/item ${selectedClient && selectedClient.id !== c.id ? 'hidden lg:block' : 'block'}`}>
               <div className={`flex items-center rounded-lg transition-all ${selectedClient?.id === c.id ? 'bg-orange-50/50 dark:bg-orange-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
                 <button

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Factory } from 'lucide-react';
+import { Factory, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, ChevronRight } from 'lucide-react';
 import { api } from '../services/api';
 import { Client, ProductionLine, SupportTicket } from '../types';
 
@@ -83,8 +83,46 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     lineSupportInfo.filter(l => l.isExpired).map(l => l.client_id)
   ).size;
 
+  // Trend: tickets created this week vs last week
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const ticketsThisWeek = tickets.filter(t => new Date(t.created_at) >= oneWeekAgo).length;
+  const ticketsLastWeek = tickets.filter(t => {
+    const d = new Date(t.created_at);
+    return d >= twoWeeksAgo && d < oneWeekAgo;
+  }).length;
+  const ticketTrendDelta = ticketsThisWeek - ticketsLastWeek;
+
+  // Lines expiring within 30 and 60 days
+  const expiringLines = lineSupportInfo
+    .filter(l => l.isActive)
+    .map(l => {
+      const paidEnd = l.paid_support_end_date ? new Date(l.paid_support_end_date) : null;
+      const warrantyStart = l.warranty_start_date ? new Date(l.warranty_start_date) : null;
+      const warrantyEnd = warrantyStart ? new Date(warrantyStart.getTime()) : null;
+      if (warrantyEnd) warrantyEnd.setFullYear(warrantyEnd.getFullYear() + 1);
+
+      let endDate: Date | null = null;
+      let supportType = '';
+      if (paidEnd && now <= paidEnd) { endDate = paidEnd; supportType = 'Техподдержка'; }
+      else if (warrantyEnd && now <= warrantyEnd) { endDate = warrantyEnd; supportType = 'Гарантия'; }
+
+      if (!endDate) return null;
+      const daysLeft = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...l, endDate, daysLeft, supportType };
+    })
+    .filter(Boolean)
+    .filter((l: any) => l.daysLeft <= 60)
+    .sort((a: any, b: any) => a.daysLeft - b.daysLeft) as any[];
+
+  const linesExpiringSoon30 = expiringLines.filter((l: any) => l.daysLeft <= 30).length;
+
+  // Find client name by client_id
+  const getClientName = (clientId: number) => clients.find(c => c.id === clientId)?.name || '—';
+
   // Active tickets (In Progress and On Hold)
   const openTickets = tickets.filter(t => t.status === 'in_progress' || t.status === 'on_hold');
+  const displayedTickets = openTickets.slice(0, 5);
 
   const pieRows = categoryAnalytics
     .map((r: any) => ({ ...r, total_tickets: Number(r.total_tickets ?? 0) }))
@@ -180,22 +218,41 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Всего клиентов</p>
           <p className="text-4xl font-black text-slate-900 dark:text-slate-100">{clients.length}</p>
+          <p className="text-xs font-bold text-slate-400 mt-2">
+            <span className="text-indigo-500">{lines.length}</span> производственных линий
+          </p>
         </button>
 
         <button
           onClick={() => {
-            window.history.pushState({ tab: 'clients' }, '', '/clients');
-            if (onNavigate) onNavigate('clients');
+            window.history.pushState({ tab: 'tickets' }, '', '/tickets');
+            if (onNavigate) onNavigate('tickets');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-slate-300 dark:hover:border-slate-600 transition-all hover:-translate-y-1 group active:scale-95"
+          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-amber-300 dark:hover:border-amber-600 transition-all hover:-translate-y-1 group active:scale-95"
         >
-          <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Всего линий</p>
-          <p className="text-4xl font-black text-slate-900 dark:text-slate-100">{lines.length}</p>
+          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Обращения за неделю</p>
+          <div className="flex items-baseline gap-3">
+            <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{ticketsThisWeek}</span>
+            {ticketTrendDelta !== 0 && (
+              <span className={`flex items-center gap-0.5 text-xs font-black ${ticketTrendDelta > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                {ticketTrendDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {Math.abs(ticketTrendDelta)}
+              </span>
+            )}
+            {ticketTrendDelta === 0 && (
+              <span className="flex items-center gap-0.5 text-xs font-black text-slate-400">
+                <Minus className="w-3.5 h-3.5" /> 0
+              </span>
+            )}
+          </div>
+          <p className="text-xs font-bold text-slate-400 mt-2">
+            <span className="text-slate-500">{ticketsLastWeek}</span> за прошлую неделю
+          </p>
         </button>
 
         <button
@@ -217,6 +274,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           <p className="text-xs font-bold text-slate-400 mt-2">
             <span className="text-indigo-500">{linesOnSupportCount}</span> активных линий
+            {linesExpiringSoon30 > 0 && (
+              <span className="ml-2 text-amber-500">⚠ {linesExpiringSoon30} истекают скоро</span>
+            )}
           </p>
         </button>
 
@@ -243,6 +303,78 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </button>
       </div>
 
+      {/* Upcoming Support Expirations Widget */}
+      {expiringLines.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Ближайшие истечения</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Поддержка истекает в ближайшие 60 дней</p>
+            </div>
+            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
+              {expiringLines.length} линий
+            </span>
+          </div>
+          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {expiringLines.slice(0, 5).map((line: any) => (
+              <div
+                key={line.id}
+                onClick={() => {
+                  window.history.pushState({ tab: 'clients' }, '', `/clients?client=${line.client_id}`);
+                  if (onNavigate) onNavigate('clients');
+                }}
+                className="flex items-center justify-between px-8 py-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${line.daysLeft <= 7 ? 'bg-red-50 dark:bg-red-900/20' :
+                    line.daysLeft <= 30 ? 'bg-amber-50 dark:bg-amber-900/20' :
+                      'bg-blue-50 dark:bg-blue-900/20'
+                    }`}>
+                    {line.daysLeft <= 7 ? (
+                      <AlertTriangle className={`w-5 h-5 text-red-500`} />
+                    ) : (
+                      <Shield className={`w-5 h-5 ${line.daysLeft <= 30 ? 'text-amber-500' : 'text-blue-500'}`} />
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{getClientName(line.client_id)}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-400 font-medium">{line.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{line.supportType}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className={`text-sm font-black ${line.daysLeft <= 7 ? 'text-red-500' :
+                      line.daysLeft <= 30 ? 'text-amber-500' :
+                        'text-blue-500'
+                      }`}>
+                      {line.daysLeft} дн.
+                    </span>
+                    <div className="text-[10px] text-slate-400 font-bold">до {line.endDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#FF5B00] transition-colors" />
+                </div>
+              </div>
+            ))}
+          </div>
+          {expiringLines.length > 5 && (
+            <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50">
+              <button
+                onClick={() => {
+                  window.history.pushState({ tab: 'clients' }, '', '/clients?support=active');
+                  if (onNavigate) onNavigate('clients');
+                }}
+                className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
+              >
+                Все клиенты <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
         <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex justify-between items-center">
           <div>
@@ -265,7 +397,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-              {openTickets.map(t => (
+              {displayedTickets.map(t => (
                 <tr
                   key={t.id}
                   onClick={() => handleDrillDown(undefined, undefined, t.id)}
@@ -304,6 +436,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </tbody>
           </table>
         </div>
+        {openTickets.length > 5 && (
+          <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-400">Показано 5 из {openTickets.length}</span>
+            <button
+              onClick={() => {
+                window.history.pushState({ tab: 'tickets' }, '', '/tickets?status=in_progress');
+                if (onNavigate) onNavigate('tickets');
+              }}
+              className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
+            >
+              Все заявки <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
