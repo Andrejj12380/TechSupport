@@ -621,14 +621,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                               {row.unsolved_tickets}
                             </button>
                           </td>
-                          <td className="px-4 py-5 text-right hidden lg:table-cell">
-                            <div className="flex flex-col items-end">
-                              <span className="font-black text-[#FF5B00]">
-                                {row[`avg_${avgPeriod}`] ?? '—'} <span className="text-[10px] ml-0.5">ч</span>
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">В среднем</span>
-                            </div>
-                          </td>
+                          {(() => {
+                            const formatHoursMinutes = (value: number | null | undefined) => {
+                              if (value == null) return '—';
+                              const hours = Math.floor(value);
+                              const minutes = Math.round((value - hours) * 60);
+                              return `${hours}ч ${minutes}м`;
+                            };
+                            return (
+                              <td className="px-4 py-5 text-right hidden lg:table-cell">
+                                <div className="flex flex-col items-end">
+                                  <span className="font-black text-[#FF5B00]">
+                                    {formatHoursMinutes(row[`avg_${avgPeriod}`])}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">В среднем</span>
+                                </div>
+                              </td>
+                            );
+                          })()}
                         </tr>
                       );
                     })}
