@@ -16,6 +16,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [avgPeriod, setAvgPeriod] = useState<string>('total');
   const [hoveredCategory, setHoveredCategory] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [showAllExpirations, setShowAllExpirations] = useState(false);
 
   const handleDrillDown = (categoryId?: number, status?: string, ticketId?: number) => {
     const params = new URLSearchParams();
@@ -316,7 +317,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             </span>
           </div>
           <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
-            {expiringLines.slice(0, 5).map((line: any) => (
+            {expiringLines.slice(0, showAllExpirations ? expiringLines.length : 3).map((line: any) => (
               <div
                 key={line.id}
                 onClick={() => {
@@ -359,16 +360,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               </div>
             ))}
           </div>
-          {expiringLines.length > 5 && (
+          {expiringLines.length > 3 && (
             <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50">
               <button
-                onClick={() => {
-                  window.history.pushState({ tab: 'clients' }, '', '/clients?support=active');
-                  if (onNavigate) onNavigate('clients');
-                }}
+                onClick={() => setShowAllExpirations(!showAllExpirations)}
                 className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
               >
-                Все клиенты <ChevronRight className="w-4 h-4" />
+                {showAllExpirations ? 'Свернуть' : `Все клиенты (${expiringLines.length})`}
               </button>
             </div>
           )}

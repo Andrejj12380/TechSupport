@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { api } from '../services/api';
 import { KnowledgeBaseArticle, KnowledgeBaseAttachment, User } from '../types';
 import { useToast } from './Toast';
@@ -45,6 +47,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('');
+    const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
+
     // Auto-save drafts to localStorage
     const DRAFT_KEY = 'kb_draft';
     const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,9 +76,21 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
         } catch { return null; }
     };
 
+    const loadArticles = useCallback(async (queryParam = searchQuery, catFilter = selectedCategoryFilter, tagFilter = selectedTagFilter) => {
+        setLoading(true);
+        try {
+            const data = await api.getKbArticles(catFilter || undefined, tagFilter || undefined, queryParam);
+            setArticles(data);
+        } catch (error) {
+            console.error('Failed to load articles', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [searchQuery, selectedCategoryFilter, selectedTagFilter]);
+
     useEffect(() => {
         loadArticles();
-    }, []);
+    }, [selectedCategoryFilter, selectedTagFilter, loadArticles]);
 
     useEffect(() => {
         if (selectedArticle) {
@@ -82,18 +99,6 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
             setAttachments([]);
         }
     }, [selectedArticle]);
-
-    const loadArticles = async (query = '') => {
-        setLoading(true);
-        try {
-            const data = await api.getKbArticles(undefined, undefined, query);
-            setArticles(data);
-        } catch (error) {
-            console.error('Failed to load articles', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const loadAttachments = async (articleId: number) => {
         try {
@@ -108,6 +113,19 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
         e.preventDefault();
         loadArticles(searchQuery);
     };
+
+    const handleCategoryClick = (e: React.MouseEvent, category: string) => {
+        e.stopPropagation();
+        setSelectedCategoryFilter(category);
+    };
+
+    const handleTagClick = (e: React.MouseEvent, tag: string) => {
+        e.stopPropagation();
+        setSelectedTagFilter(tag);
+    };
+
+    const clearCategoryFilter = () => setSelectedCategoryFilter('');
+    const clearTagFilter = () => setSelectedTagFilter('');
 
     const handleCreateNew = () => {
         const draft = loadDraft();
@@ -251,6 +269,28 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                         />
                         <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 dark:text-slate-500 group-focus-within:text-[#FF5B00] transition-colors" />
                     </form>
+
+                    {/* Active Filters */}
+                    {(selectedCategoryFilter || selectedTagFilter) && (
+                        <div className="flex gap-2 flex-wrap">
+                            {selectedCategoryFilter && (
+                                <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-md text-[11px] font-bold">
+                                    <span>Категория: {selectedCategoryFilter}</span>
+                                    <button onClick={clearCategoryFilter} className="hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded-sm p-0.5 transition-colors">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
+                            {selectedTagFilter && (
+                                <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/30 text-[#FF5B00] px-2 py-1 rounded-md text-[11px] font-bold">
+                                    <span>Тег: {selectedTagFilter}</span>
+                                    <button onClick={clearTagFilter} className="hover:bg-orange-200 dark:hover:bg-orange-800 rounded-sm p-0.5 transition-colors">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-1">
@@ -288,10 +328,15 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                     {article.title}
                                 </h3>
                                 <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                                    <span className="flex items-center gap-1">
-                                        <TagIcon className="w-3 h-3" />
-                                        {article.category || 'Без категории'}
-                                    </span>
+                                    {article.category && (
+                                        <span
+                                            onClick={(e) => handleCategoryClick(e, article.category!)}
+                                            className="flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                        >
+                                            <TagIcon className="w-3 h-3" />
+                                            {article.category}
+                                        </span>
+                                    )}
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         {new Date(article.created_at).toLocaleDateString()}
@@ -379,7 +424,29 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
 
                                 {isPreview ? (
                                     <div className="prose prose-slate dark:prose-invert max-w-none min-h-[500px] border-t border-slate-100 dark:border-slate-700 pt-6 prose-headings:font-black prose-h1:text-4xl prose-h2:text-2xl prose-h3:text-xl prose-h4:text-lg prose-img:rounded-2xl">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                code(props) {
+                                                    const { children, className, node, ref, ...rest } = props
+                                                    const match = /language-(\w+)/.exec(className || '')
+                                                    return match ? (
+                                                        <SyntaxHighlighter
+                                                            {...rest as any}
+                                                            PreTag="div"
+                                                            children={String(children).replace(/\n$/, '')}
+                                                            language={match[1]}
+                                                            style={vscDarkPlus as any}
+                                                            className="rounded-xl !my-4 !bg-[#1E1E1E]"
+                                                        />
+                                                    ) : (
+                                                        <code {...rest as any} className={className}>
+                                                            {children}
+                                                        </code>
+                                                    )
+                                                }
+                                            }}
+                                        >
                                             {editForm.content || '*Начните писать, чтобы увидеть предпросмотр...*'}
                                         </ReactMarkdown>
                                     </div>
@@ -436,25 +503,60 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                         <div>
                                             <h1 className="text-5xl font-black text-slate-900 dark:text-slate-100 mb-6 leading-tight">{selectedArticle.title}</h1>
                                             <div className="flex flex-wrap gap-4 items-center text-xs">
-                                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider">
-                                                    <TagIcon className="w-3 h-3" />
-                                                    {selectedArticle.category || 'Без категории'}
-                                                </div>
-                                                <div className="h-4 w-[1px] bg-slate-200" />
+                                                {selectedArticle.category && (
+                                                    <div
+                                                        onClick={(e) => handleCategoryClick(e, selectedArticle.category!)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-full text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                                                    >
+                                                        <TagIcon className="w-3 h-3" />
+                                                        {selectedArticle.category}
+                                                    </div>
+                                                )}
+
+                                                {selectedArticle.category && <div className="h-4 w-[1px] bg-slate-200" />}
+
                                                 <div className="flex items-center gap-1.5 text-slate-400 font-medium">
                                                     <Clock className="w-3.5 h-3.5" />
                                                     {new Date(selectedArticle.created_at).toLocaleDateString()}
                                                 </div>
                                                 <div className="flex gap-2">
                                                     {selectedArticle.tags?.map((tag, i) => (
-                                                        <span key={i} className="text-[#FF5B00] font-bold">#{tag}</span>
+                                                        <span
+                                                            key={i}
+                                                            onClick={(e) => handleTagClick(e, tag)}
+                                                            className="text-[#FF5B00] font-bold hover:underline cursor-pointer"
+                                                        >
+                                                            #{tag}
+                                                        </span>
                                                     ))}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-black prose-h1:text-5xl prose-h2:text-3xl prose-h3:text-2xl prose-h4:text-xl prose-a:text-[#FF5B00] text-slate-700 dark:text-slate-300 leading-relaxed text-lg pb-12 prose-img:rounded-2xl prose-img:shadow-xl">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    code(props) {
+                                                        const { children, className, node, ref, ...rest } = props
+                                                        const match = /language-(\w+)/.exec(className || '')
+                                                        return match ? (
+                                                            <SyntaxHighlighter
+                                                                {...rest as any}
+                                                                PreTag="div"
+                                                                children={String(children).replace(/\n$/, '')}
+                                                                language={match[1]}
+                                                                style={vscDarkPlus as any}
+                                                                className="rounded-xl !my-4 !bg-[#1E1E1E]"
+                                                            />
+                                                        ) : (
+                                                            <code {...rest as any} className={className}>
+                                                                {children}
+                                                            </code>
+                                                        )
+                                                    }
+                                                }}
+                                            >
                                                 {selectedArticle.content}
                                             </ReactMarkdown>
                                         </div>

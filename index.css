@@ -31,7 +31,6 @@
   line-height: 1.5;
 }
 
-/* Ensure images don't overflow */
 .prose img {
   border-radius: 0.75rem;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -41,6 +40,12 @@
 
 .dark .prose img {
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+}
+
+/* Remove literal backticks added by Tailwind Typography for inline code */
+.prose code::before,
+.prose code::after {
+  content: none !important;
 }
 
 /* Tab transition animation */
