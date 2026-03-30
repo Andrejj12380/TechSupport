@@ -510,7 +510,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
-                        <MessageSquare className="w-8 h-8 text-[#FF5B00]" />
+                        <MessageSquare className="w-8 h-8 text-[primary]" />
                         Журнал обращений
                     </h1>
                     <p className="text-slate-500 font-medium mt-1">Фиксация и контроль техподдержки клиентов</p>
@@ -529,7 +529,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     {isAuthorized && (
                         <button
                             onClick={() => { resetForm(); setIsModalOpen(true); }}
-                            className="bg-[#FF5B00] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#e65200] transition-all shadow-lg shadow-[#FF5B00]/25 active:scale-95"
+                            className="bg-[primary] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-[primary]/25 active:scale-95"
                         >
                             <Plus className="w-5 h-5" />
                             Новое обращение
@@ -549,14 +549,14 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                             placeholder="Поиск по проблеме, клиенту или контакту..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-[#FF5B00]/20 transition-all"
+                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-[primary]/20 transition-all"
                         />
                     </div>
 
                     <select
                         value={sortDateMode}
                         onChange={(e) => setSortDateMode(e.target.value as any)}
-                        className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2.5 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 hidden sm:block"
+                        className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2.5 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[primary]/20 hidden sm:block"
                     >
                         <option value="reported_at">По дате обращения</option>
                         <option value="created_at">По дате добавления</option>
@@ -565,14 +565,14 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <button
                         onClick={() => setIsFiltersOpen(!isFiltersOpen)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${isFiltersOpen || activeFilterCount > 0
-                                ? 'bg-[#FF5B00]/10 text-[#FF5B00] border border-[#FF5B00]/20'
+                                ? 'bg-[primary]/10 text-[primary] border border-[primary]/20'
                                 : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                             }`}
                     >
                         <Filter className="w-4 h-4" />
                         <span className="hidden sm:inline">Фильтры</span>
                         {activeFilterCount > 0 && (
-                            <span className="w-5 h-5 rounded-full bg-[#FF5B00] text-white text-[10px] font-black flex items-center justify-center">
+                            <span className="w-5 h-5 rounded-full bg-[primary] text-white text-[10px] font-black flex items-center justify-center">
                                 {activeFilterCount}
                             </span>
                         )}
@@ -586,7 +586,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                             <select
                                 value={filterClient}
                                 onChange={(e) => setFilterClient(e.target.value)}
-                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 flex-1 min-w-[160px]"
+                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[primary]/20 flex-1 min-w-[160px]"
                             >
                                 <option value="">Все клиенты</option>
                                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -595,7 +595,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
-                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 flex-1 min-w-[140px]"
+                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[primary]/20 flex-1 min-w-[140px]"
                             >
                                 <option value="">Все статусы</option>
                                 <option value="in_progress">В работе</option>
@@ -607,7 +607,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                             <select
                                 value={filterCategory}
                                 onChange={(e) => setFilterCategory(e.target.value)}
-                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20 flex-1 min-w-[140px]"
+                                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[primary]/20 flex-1 min-w-[140px]"
                             >
                                 <option value="">Все категории</option>
                                 {ticketCategories.map(cat => (
@@ -620,7 +620,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     type="date"
                                     value={filterReportedFrom}
                                     onChange={(e) => setFilterReportedFrom(e.target.value)}
-                                    className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20"
+                                    className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[primary]/20"
                                     title="Дата с"
                                 />
                                 <span className="text-slate-300 dark:text-slate-600">—</span>
@@ -628,7 +628,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     type="date"
                                     value={filterReportedTo}
                                     onChange={(e) => setFilterReportedTo(e.target.value)}
-                                    className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[#FF5B00]/20"
+                                    className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-300 font-bold focus:ring-2 focus:ring-[primary]/20"
                                     title="Дата по"
                                 />
                             </div>
@@ -636,7 +636,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                             {activeFilterCount > 0 && (
                                 <button
                                     onClick={() => { setFilterClient(''); setFilterStatus(''); setFilterCategory(''); setFilterReportedFrom(''); setFilterReportedTo(''); }}
-                                    className="text-xs font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors ml-auto"
+                                    className="text-xs font-bold text-[primary] hover:text-primary/90 transition-colors ml-auto"
                                 >
                                     Сбросить все
                                 </button>
@@ -684,7 +684,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 <tr
                                     key={ticket.id}
                                     onClick={() => openEditModal(ticket)}
-                                    className="hover:bg-[#FF5B00]/5 dark:hover:bg-[#FF5B00]/10 transition-colors group cursor-pointer"
+                                    className="hover:bg-[primary]/5 dark:hover:bg-[primary]/10 transition-colors group cursor-pointer"
                                 >
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
@@ -701,7 +701,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-2">
-                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{ticket.client_name}</div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[primary] transition-colors">{ticket.client_name}</div>
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase ${getTicketSupportStatus(ticket).color} border border-current opacity-60`}>
                                                 {getTicketSupportStatus(ticket).label}
                                             </span>
@@ -795,7 +795,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 duration-200">
                         <div className="p-8 pb-4 flex justify-between items-center shrink-0 border-b border-slate-50 dark:border-slate-700">
                             <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3">
-                                {selectedTicket ? <Edit2 className="w-6 h-6 text-[#FF5B00]" /> : <Plus className="w-6 h-6 text-[#FF5B00]" />}
+                                {selectedTicket ? <Edit2 className="w-6 h-6 text-[primary]" /> : <Plus className="w-6 h-6 text-[primary]" />}
                                 {selectedTicket ? 'Редактировать обращение' : 'Новое обращение'}
                             </h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -814,7 +814,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer}
                                         value={formData.client_id}
                                         onChange={(e) => handleClientChange(Number(e.target.value))}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="">Выберите клиента</option>
                                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -828,7 +828,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer}
                                         value={formData.line_id || ''}
                                         onChange={(e) => setFormData({ ...formData, line_id: e.target.value ? Number(e.target.value) : null })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="">Не привязано</option>
                                         {lines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -841,7 +841,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer}
                                         value={formData.category_id ?? ''}
                                         onChange={(e) => setFormData({ ...formData, category_id: e.target.value ? Number(e.target.value) : null })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="">Выберите категорию</option>
                                         {ticketCategories
@@ -854,13 +854,13 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                        <MessageSquare className="w-3 h-3 text-[#FF5B00]" /> Канал обращения
+                                        <MessageSquare className="w-3 h-3 text-[primary]" /> Канал обращения
                                     </label>
                                     <select
                                         disabled={isViewer}
                                         value={formData.contact_channel || 'phone'}
                                         onChange={(e) => setFormData({ ...formData, contact_channel: e.target.value })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                                     >
                                         <option value="phone">📞 Телефон</option>
                                         <option value="email">📧 Email</option>
@@ -883,7 +883,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         list="contact-suggestions"
                                         value={formData.contact_name}
                                         onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                         placeholder="Имя / Фамилия заявителя"
                                     />
                                     <datalist id="contact-suggestions">
@@ -926,7 +926,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     disabled={isViewer}
                                     value={formData.problem_description}
                                     onChange={(e) => setFormData({ ...formData, problem_description: e.target.value })}
-                                    className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     placeholder="Подробно опишите суть обращения клиента..."
                                 />
                             </div>
@@ -939,7 +939,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     disabled={isViewer}
                                     value={formData.solution_description}
                                     onChange={(e) => setFormData({ ...formData, solution_description: e.target.value })}
-                                    className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                    className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     placeholder="Опишите принятые меры или итоговое решение..."
                                 />
                             </div>
@@ -951,7 +951,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         disabled={isViewer || (user?.role !== 'admin' && !!selectedTicket?.id)}
                                         value={formData.user_id || ''}
                                         onChange={(e) => setFormData({ ...formData, user_id: Number(e.target.value) })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     >
                                         <option value="">Выберите инженера</option>
                                         {engineers.map(eng => (
@@ -972,7 +972,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                 className={`
                                                     px-4 py-2 rounded-xl text-xs font-bold transition-all
                                                     ${formData.status === status
-                                                        ? 'bg-[#FF5B00] text-white shadow-lg shadow-[#FF5B00]/25'
+                                                        ? 'bg-[primary] text-white shadow-lg shadow-[primary]/25'
                                                         : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}
                                                 `}
                                             >
@@ -991,7 +991,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         type="datetime-local"
                                         value={formData.reported_at ? toInputLocal(formData.reported_at as string) : ''}
                                         onChange={(e) => setFormData({ ...formData, reported_at: toISOStringFromInput(e.target.value) || undefined })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -1001,7 +1001,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         type="datetime-local"
                                         value={formData.resolved_at ? toInputLocal(formData.resolved_at as string) : ''}
                                         onChange={(e) => setFormData({ ...formData, resolved_at: toISOStringFromInput(e.target.value) || undefined })}
-                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        className={`w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 transition-all ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     />
                                 </div>
                             </div>
@@ -1024,7 +1024,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     <button
                                         type="submit"
                                         disabled={isSaving}
-                                        className="flex-1 px-6 py-4 bg-[#FF5B00] text-white font-black rounded-2xl hover:bg-[#e65200] transition-all shadow-lg shadow-[#FF5B00]/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="flex-1 px-6 py-4 bg-[primary] text-white font-black rounded-2xl hover:bg-primary/90 transition-all shadow-lg shadow-[primary]/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isSaving ? (
                                             <>
@@ -1117,7 +1117,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                     type="checkbox"
                                                     checked={categoryForm.is_active}
                                                     onChange={(e) => setCategoryForm({ ...categoryForm, is_active: e.target.checked })}
-                                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[#FF5B00] focus:ring-[#FF5B00]"
+                                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-[primary] focus:ring-[primary]"
                                                 />
                                                 Активна
                                             </label>
@@ -1126,7 +1126,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                     <div className="flex gap-2">
                                         <button
                                             type="submit"
-                                            className="px-4 py-2 rounded-xl bg-[#FF5B00] text-white font-black hover:bg-[#e65200] transition-all"
+                                            className="px-4 py-2 rounded-xl bg-[primary] text-white font-black hover:bg-primary/90 transition-all"
                                         >
                                             Сохранить
                                         </button>

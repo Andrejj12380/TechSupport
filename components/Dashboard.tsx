@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Factory, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, ChevronRight, Workflow } from 'lucide-react';
+import { Factory, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, ChevronRight, ChevronDown, Workflow } from 'lucide-react';
 import { api } from '../services/api';
 import { Client, ProductionLine, SupportTicket } from '../types';
 
@@ -19,6 +19,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [showAllExpirations, setShowAllExpirations] = useState(false);
   const [channelAnalytics, setChannelAnalytics] = useState<any[]>([]);
   const [frequencyAnalytics, setFrequencyAnalytics] = useState<any[]>([]);
+
+  // Collapse state for major sections
+  const [showExpirations, setShowExpirations] = useState(true);
+  const [showActiveTickets, setShowActiveTickets] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(true);
+  const [showChannelFreq, setShowChannelFreq] = useState(true);
 
   const handleDrillDown = (categoryId?: number, status?: string, ticketId?: number) => {
     const params = new URLSearchParams();
@@ -161,7 +167,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       .filter((r: any) => r.total_tickets > 0);
 
     const pieTotal = pieRows.reduce((sum: number, r: any) => sum + r.total_tickets, 0);
-    const pieColors = ['#FF5B00', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#64748B'];
+    const pieColors = ['primary', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#64748B'];
 
     const getCoordinatesForPercent = (percent: number) => {
       const x = Math.cos(2 * Math.PI * percent);
@@ -219,7 +225,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     ? pieRows.find((r: any) => r.category_id === hoveredCategory)
     : null;
 
-  // If hoveredData is found, get its index to match color
   const hoveredColor = hoveredData
     ? pieColors[pieRows.indexOf(hoveredData) % pieColors.length]
     : null;
@@ -230,64 +235,110 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       : categoryAnalytics,
     [selectedCategory, categoryAnalytics]);
 
+  const channelLabels: Record<string, string> = {
+    'phone': '📞 Телефон',
+    'email': '📧 Email',
+    'telegram': '✈️ Telegram',
+    'max': '💬 Messenger MAX',
+    'other': '❓ Другое'
+  };
+
+  const SectionHeader = ({
+    title,
+    subtitle,
+    badge,
+    isOpen,
+    onToggle,
+    extra
+  }: {
+    title: string;
+    subtitle: string;
+    badge?: React.ReactNode;
+    isOpen: boolean;
+    onToggle: () => void;
+    extra?: React.ReactNode;
+  }) => (
+    <div className="p-8 pb-4 border-b border-surface-100 dark:border-surface-700/50 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 className="text-2xl font-display font-black text-slate-950 dark:text-white tracking-tight">{title}</h2>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{subtitle}</p>
+      </div>
+      <div className="flex items-center gap-3">
+        {extra}
+        {badge}
+        <button
+          onClick={onToggle}
+          className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface-100 dark:hover:bg-surface-700 text-slate-400 transition-all border border-transparent hover:border-surface-200 dark:hover:border-surface-600 shadow-sm"
+          title={isOpen ? 'Свернуть' : 'Развернуть'}
+        >
+          <ChevronDown className={`w-5 h-5 transition-transform duration-500 ${isOpen ? '' : '-rotate-90'}`} />
+        </button>
+      </div>
+    </div>
+  );
+
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-10 animate-slideUp">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 italic uppercase tracking-tight">Обзор системы</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Мониторинг обращений и состояния объектов в реальном времени</p>
+          <h1 className="text-4xl font-display font-black text-slate-950 dark:text-white uppercase tracking-tight">Обзор системы</h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">Мониторинг обращений и состояния объектов в реальном времени</p>
         </div>
       </div>
 
+
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <button
           onClick={() => {
             window.history.pushState({ tab: 'clients' }, '', '/clients');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-[#FF5B00]/40 transition-all hover:-translate-y-1 group active:scale-95"
+          className="bg-white dark:bg-surface-900 p-8 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 text-left hover:border-primary/40 transition-all hover:-translate-y-1.5 group active:scale-95 relative overflow-hidden"
         >
-          <div className="w-12 h-12 bg-[#FF5B00]/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Workflow className="w-6 h-6 text-[#FF5B00]" strokeWidth={2.5} />
+          <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner shadow-primary/5">
+            <Workflow className="w-7 h-7 text-primary" strokeWidth={2.5} />
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Всего клиентов</p>
-          <p className="text-4xl font-black text-slate-900 dark:text-slate-100">{clients.length}</p>
-          <p className="text-xs font-bold text-slate-400 mt-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Всего клиентов</p>
+          <p className="text-5xl font-display font-black text-slate-950 dark:text-white">{clients.length}</p>
+          <p className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
             <span className="text-indigo-500">{lines.length}</span> производственных линий
           </p>
+          {/* Decorative subtle gradient */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
         </button>
+
 
         <button
           onClick={() => {
             window.history.pushState({ tab: 'tickets' }, '', '/tickets');
             if (onNavigate) onNavigate('tickets');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-amber-300 dark:hover:border-amber-600 transition-all hover:-translate-y-1 group active:scale-95"
+          className="bg-white dark:bg-surface-900 p-8 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 text-left hover:border-amber-400 transition-all hover:-translate-y-1.5 group active:scale-95 relative overflow-hidden"
         >
-          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-14 h-14 bg-amber-50 dark:bg-amber-900/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg className="w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Обращения за неделю</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Обращения за неделю</p>
           <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
+            <span className="text-5xl font-display font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
             {trend.ticketTrendDelta !== 0 && (
-              <span className={`flex items-center gap-0.5 text-xs font-black ${trend.ticketTrendDelta > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+              <span className={`flex items-center gap-0.5 text-xs font-black px-1.5 py-0.5 rounded-lg ${trend.ticketTrendDelta > 0 ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
                 {trend.ticketTrendDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                 {Math.abs(trend.ticketTrendDelta)}
               </span>
             )}
-            {trend.ticketTrendDelta === 0 && (
-              <span className="flex items-center gap-0.5 text-xs font-black text-slate-400">
-                <Minus className="w-3.5 h-3.5" /> 0
-              </span>
-            )}
           </div>
-          <p className="text-xs font-bold text-slate-400 mt-2">
+          <p className="text-xs font-bold text-slate-400 mt-4">
             <span className="text-slate-500">{trend.ticketsLastWeek}</span> за прошлую неделю
           </p>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
         </button>
+
 
         <button
           onClick={() => {
@@ -319,431 +370,448 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'clients' }, '', '/clients?support=expired');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-red-300 dark:hover:border-red-600 transition-all hover:-translate-y-1 group active:scale-95"
+          className="bg-white dark:bg-surface-900 p-8 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 text-left hover:border-red-400 transition-all hover:-translate-y-1.5 group active:scale-95 relative overflow-hidden"
         >
-          <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-14 h-14 bg-red-50 dark:bg-red-900/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Поддержка истекла</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Поддержка истекла</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-red-500">{stats.clientsExpiredCount}</span>
+            <span className="text-5xl font-display font-black text-red-500">{stats.clientsExpiredCount}</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Клиентов</span>
           </div>
-          <p className="text-xs font-bold text-slate-400 mt-2">
+          <p className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
             <span className="text-red-400">{stats.linesExpiredCount}</span> без поддержки
           </p>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
         </button>
       </div>
 
       {/* Upcoming Support Expirations Widget */}
       {expiringLines.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
-          <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Ближайшие истечения</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Поддержка истекает в ближайшие 60 дней</p>
-            </div>
-            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
-              {expiringLines.length} линий
-            </span>
-          </div>
-          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
-            {expiringLines.slice(0, showAllExpirations ? expiringLines.length : 3).map((line: any) => (
-              <div
-                key={line.id}
-                onClick={() => {
-                  window.history.pushState({ tab: 'clients' }, '', `/clients?client=${line.client_id}`);
-                  if (onNavigate) onNavigate('clients');
-                }}
-                className="flex items-center justify-between px-8 py-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${line.daysLeft <= 7 ? 'bg-red-50 dark:bg-red-900/20' :
-                    line.daysLeft <= 30 ? 'bg-amber-50 dark:bg-amber-900/20' :
-                      'bg-blue-50 dark:bg-blue-900/20'
-                    }`}>
-                    {line.daysLeft <= 7 ? (
-                      <AlertTriangle className={`w-5 h-5 text-red-500`} />
-                    ) : (
-                      <Shield className={`w-5 h-5 ${line.daysLeft <= 30 ? 'text-amber-500' : 'text-blue-500'}`} />
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{getClientName(line.client_id)}</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-400 font-medium">{line.name}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{line.supportType}</span>
+        <div className="bg-white dark:bg-surface-900 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 overflow-hidden">
+
+          <SectionHeader
+            title="Ближайшие истечения"
+            subtitle="Поддержка истекает в ближайшие 60 дней"
+            badge={
+              <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
+                {expiringLines.length} линий
+              </span>
+            }
+            isOpen={showExpirations}
+            onToggle={() => setShowExpirations(v => !v)}
+          />
+          <div className={`overflow-hidden transition-all duration-300 ${showExpirations ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+              {expiringLines.slice(0, showAllExpirations ? expiringLines.length : 3).map((line: any) => (
+                <div
+                  key={line.id}
+                  onClick={() => {
+                    window.history.pushState({ tab: 'clients' }, '', `/clients?client=${line.client_id}`);
+                    if (onNavigate) onNavigate('clients');
+                  }}
+                  className="flex items-center justify-between px-8 py-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${line.daysLeft <= 7 ? 'bg-red-50 dark:bg-red-900/20' :
+                      line.daysLeft <= 30 ? 'bg-amber-50 dark:bg-amber-900/20' :
+                        'bg-blue-50 dark:bg-blue-900/20'
+                      }`}>
+                      {line.daysLeft <= 7 ? (
+                        <AlertTriangle className={`w-5 h-5 text-red-500`} />
+                      ) : (
+                        <Shield className={`w-5 h-5 ${line.daysLeft <= 30 ? 'text-amber-500' : 'text-blue-500'}`} />
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[primary] transition-colors">{getClientName(line.client_id)}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-400 font-medium">{line.name}</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{line.supportType}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <span className={`text-sm font-black ${line.daysLeft <= 7 ? 'text-red-500' :
-                      line.daysLeft <= 30 ? 'text-amber-500' :
-                        'text-blue-500'
-                      }`}>
-                      {line.daysLeft} дн.
-                    </span>
-                    <div className="text-[10px] text-slate-400 font-bold">до {line.endDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className={`text-sm font-black ${line.daysLeft <= 7 ? 'text-red-500' :
+                        line.daysLeft <= 30 ? 'text-amber-500' :
+                          'text-blue-500'
+                        }`}>
+                        {line.daysLeft} дн.
+                      </span>
+                      <div className="text-[10px] text-slate-400 font-bold">до {line.endDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[primary] transition-colors" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#FF5B00] transition-colors" />
                 </div>
+              ))}
+            </div>
+            {expiringLines.length > 3 && (
+              <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50">
+                <button
+                  onClick={() => setShowAllExpirations(!showAllExpirations)}
+                  className="text-sm font-bold text-[primary] hover:text-primary/90 transition-colors flex items-center gap-1"
+                >
+                  {showAllExpirations ? 'Свернуть' : `Все клиенты (${expiringLines.length})`}
+                </button>
               </div>
-            ))}
+            )}
           </div>
-          {expiringLines.length > 3 && (
-            <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50">
+        </div>
+      )}
+
+      {/* Active Tickets */}
+      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <SectionHeader
+          title="Заявки в работе"
+          subtitle="Очередь активных инцидентов"
+          badge={
+            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
+              {openTickets.length} активных
+            </span>
+          }
+          isOpen={showActiveTickets}
+          onToggle={() => setShowActiveTickets(v => !v)}
+        />
+        <div className={`overflow-hidden transition-all duration-300 ${showActiveTickets ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
+                  <th className="px-8 py-4">Клиент</th>
+                  <th className="px-8 py-4">Проблема</th>
+                  <th className="px-8 py-4">Статус</th>
+                  <th className="px-8 py-4 hidden sm:table-cell">Инженер</th>
+                  <th className="px-8 py-4 hidden sm:table-cell">Обновлено</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                {displayedTickets.map(t => (
+                  <tr
+                    key={t.id}
+                    onClick={() => handleDrillDown(undefined, undefined, t.id)}
+                    className="group text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                  >
+                    <td className="px-8 py-5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[primary] transition-colors">{t.client_name || '—'}</span>
+                        <span className="text-[10px] text-slate-400 font-medium">#{t.id}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <p className="max-w-xs truncate text-slate-600 dark:text-slate-300 font-medium">{t.problem_description}</p>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${t.status === 'on_hold'
+                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                        : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800'
+                        }`}>
+                        {t.status === 'on_hold' ? 'В ожидании' : 'В работе'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5 hidden sm:table-cell">
+                      <span className="text-slate-600 dark:text-slate-300 font-bold">{t.engineer_name || '—'}</span>
+                    </td>
+                    <td className="px-8 py-5 text-slate-400 dark:text-slate-500 font-bold hidden sm:table-cell">
+                      {t.reported_at ? new Date(t.reported_at).toLocaleDateString('ru-RU') : '—'}
+                    </td>
+                  </tr>
+                ))}
+                {openTickets.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-8 py-16 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет активных заявок</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {openTickets.length > 5 && (
+            <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400">Показано 5 из {openTickets.length}</span>
               <button
-                onClick={() => setShowAllExpirations(!showAllExpirations)}
-                className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
+                onClick={() => {
+                  window.history.pushState({ tab: 'tickets' }, '', '/tickets?status=in_progress');
+                  if (onNavigate) onNavigate('tickets');
+                }}
+                className="text-sm font-bold text-[primary] hover:text-primary/90 transition-colors flex items-center gap-1"
               >
-                {showAllExpirations ? 'Свернуть' : `Все клиенты (${expiringLines.length})`}
+                Все заявки <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
         </div>
-      )}
-
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Заявки в работе</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Очередь активных инцидентов</p>
-          </div>
-          <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
-            {openTickets.length} активных
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
-                <th className="px-8 py-4">Клиент</th>
-                <th className="px-8 py-4">Проблема</th>
-                <th className="px-8 py-4">Статус</th>
-                <th className="px-8 py-4 hidden sm:table-cell">Инженер</th>
-                <th className="px-8 py-4 hidden sm:table-cell">Обновлено</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-              {displayedTickets.map(t => (
-                <tr
-                  key={t.id}
-                  onClick={() => handleDrillDown(undefined, undefined, t.id)}
-                  className="group text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                >
-                  <td className="px-8 py-5">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{t.client_name || '—'}</span>
-                      <span className="text-[10px] text-slate-400 font-medium">#{t.id}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <p className="max-w-xs truncate text-slate-600 dark:text-slate-300 font-medium">{t.problem_description}</p>
-                  </td>
-                  <td className="px-8 py-5">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${t.status === 'on_hold'
-                      ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
-                      : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800'
-                      }`}>
-                      {t.status === 'on_hold' ? 'В ожидании' : 'В работе'}
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 hidden sm:table-cell">
-                    <span className="text-slate-600 dark:text-slate-300 font-bold">{t.engineer_name || '—'}</span>
-                  </td>
-                  <td className="px-8 py-5 text-slate-400 dark:text-slate-500 font-bold hidden sm:table-cell">
-                    {t.reported_at ? new Date(t.reported_at).toLocaleDateString('ru-RU') : '—'}
-                  </td>
-                </tr>
-              ))}
-              {openTickets.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-8 py-16 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет активных заявок</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {openTickets.length > 5 && (
-          <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Показано 5 из {openTickets.length}</span>
-            <button
-              onClick={() => {
-                window.history.pushState({ tab: 'tickets' }, '', '/tickets?status=in_progress');
-                if (onNavigate) onNavigate('tickets');
-              }}
-              className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
-            >
-              Все заявки <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
       </div>
 
+      {/* Analytics */}
       <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Аналитика</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Распределение по категориям проблем</p>
-          </div>
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700 self-start">
-            {[
-              { id: '7d', label: 'Неделя' },
-              { id: '30d', label: 'Месяц' },
-              { id: '90d', label: 'Квартал' },
-              { id: '365d', label: 'Год' },
-              { id: 'total', label: 'Все' },
-            ].map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setAvgPeriod(p.id)}
-                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${avgPeriod === p.id
-                  ? 'bg-white dark:bg-slate-700 text-[#FF5B00] shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <SectionHeader
+          title="Аналитика"
+          subtitle="Распределение по категориям проблем"
+          isOpen={showAnalytics}
+          onToggle={() => setShowAnalytics(v => !v)}
+          extra={
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700">
+              {[
+                { id: '7d', label: 'Неделя' },
+                { id: '30d', label: 'Месяц' },
+                { id: '90d', label: 'Квартал' },
+                { id: '365d', label: 'Год' },
+                { id: 'total', label: 'Все' },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setAvgPeriod(p.id)}
+                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${avgPeriod === p.id
+                    ? 'bg-white dark:bg-slate-700 text-[primary] shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          }
+        />
+        <div className={`overflow-hidden transition-all duration-300 ${showAnalytics ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+              <div className="lg:col-span-1">
+                <div className="flex items-center justify-center p-4">
+                  <div className="relative w-56 h-56 group">
+                    {pieTotal > 0 ? (
+                      <svg viewBox="-1 -1 2 2" className="w-56 h-56 transform -rotate-0 drop-shadow-2xl">
+                        {paths.map((slice: any) => (
+                          <path
+                            key={slice.category.category_id}
+                            d={slice.pathData}
+                            fill={slice.color}
+                            className={`transition-all duration-300 cursor-pointer ${hoveredCategory === slice.category.category_id
+                              ? 'opacity-100 scale-105 origin-center'
+                              : hoveredCategory !== null
+                                ? 'opacity-30'
+                                : 'opacity-100'
+                              }`}
+                            onMouseEnter={() => setHoveredCategory(slice.category.category_id)}
+                            onMouseLeave={() => setHoveredCategory(null)}
+                            onClick={() => handleDrillDown(slice.category.category_id)}
+                            style={{ transformBox: 'fill-box' }}
+                          />
+                        ))}
+                      </svg>
+                    ) : (
+                      <div className="w-full h-full rounded-full border-4 border-dashed border-slate-100 dark:border-slate-700 flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
+                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Нет данных</span>
+                      </div>
+                    )}
 
-        <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            <div className="lg:col-span-1">
-              <div className="flex items-center justify-center p-4">
-                <div className="relative w-56 h-56 group">
-                  {pieTotal > 0 ? (
-                    <svg viewBox="-1 -1 2 2" className="w-56 h-56 transform -rotate-0 drop-shadow-2xl">
-                      {paths.map((slice: any) => (
-                        <path
-                          key={slice.category.category_id}
-                          d={slice.pathData}
-                          fill={slice.color}
-                          className={`transition-all duration-300 cursor-pointer ${hoveredCategory === slice.category.category_id
-                            ? 'opacity-100 scale-105 origin-center'
-                            : hoveredCategory !== null
-                              ? 'opacity-30'
-                              : 'opacity-100'
-                            }`}
-                          onMouseEnter={() => setHoveredCategory(slice.category.category_id)}
-                          onMouseLeave={() => setHoveredCategory(null)}
-                          onClick={() => handleDrillDown(slice.category.category_id)}
-                          style={{ transformBox: 'fill-box' }}
-                        />
-                      ))}
-                    </svg>
-                  ) : (
-                    <div className="w-full h-full rounded-full border-4 border-dashed border-slate-100 dark:border-slate-700 flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
-                      <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Нет данных</span>
-                    </div>
-                  )}
-
-                  {/* Center Content */}
-                  <div className="absolute inset-[25%] rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-center shadow-xl border border-slate-50 dark:border-slate-700 z-10">
-                    <div className="animate-in fade-in duration-300">
-                      {hoveredData ? (
-                        <div className="px-2">
-                          <div className="text-2xl font-black" style={{ color: hoveredColor }}>
-                            {Math.round((hoveredData.total_tickets / pieTotal) * 100)}%
+                    {/* Center Content */}
+                    <div className="absolute inset-[25%] rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-center shadow-xl border border-slate-50 dark:border-slate-700 z-10">
+                      <div className="animate-in fade-in duration-300">
+                        {hoveredData ? (
+                          <div className="px-2">
+                            <div className="text-2xl font-black" style={{ color: hoveredColor }}>
+                              {Math.round((hoveredData.total_tickets / pieTotal) * 100)}%
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight line-clamp-2 mt-0.5">
+                              {hoveredData.category_name}
+                            </div>
                           </div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight line-clamp-2 mt-0.5">
-                            {hoveredData.category_name}
+                        ) : (
+                          <div>
+                            <div className="text-4xl font-black text-slate-900 dark:text-slate-100">{pieTotal}</div>
+                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Обращений</div>
                           </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="text-4xl font-black text-slate-900 dark:text-slate-100">{pieTotal}</div>
-                          <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Обращений</div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-8 grid grid-cols-1 gap-2">
-                {pieRows.map((r: any, idx: number) => {
-                  const color = pieColors[idx % pieColors.length];
-                  const pct = pieTotal > 0 ? Math.round((r.total_tickets / pieTotal) * 100) : 0;
-                  const isHovered = hoveredCategory === r.category_id;
-                  const isSelected = selectedCategory === r.category_id;
-                  const isActive = isHovered || isSelected;
-                  const isDimmed = (hoveredCategory !== null && !isHovered) || (selectedCategory !== null && !isSelected && hoveredCategory === null);
+                <div className="mt-8 grid grid-cols-1 gap-2">
+                  {pieRows.map((r: any, idx: number) => {
+                    const color = pieColors[idx % pieColors.length];
+                    const pct = pieTotal > 0 ? Math.round((r.total_tickets / pieTotal) * 100) : 0;
+                    const isHovered = hoveredCategory === r.category_id;
+                    const isSelected = selectedCategory === r.category_id;
+                    const isActive = isHovered || isSelected;
+                    const isDimmed = (hoveredCategory !== null && !isHovered) || (selectedCategory !== null && !isSelected && hoveredCategory === null);
 
-                  return (
-                    <div
-                      key={r.category_id}
-                      className={`flex items-center justify-between gap-3 text-xs transition-all duration-200 cursor-pointer p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 ${isDimmed ? 'opacity-30 blur-[0.5px]' : 'opacity-100'
-                        } ${isSelected ? 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600' : 'border border-transparent'}`}
-                      onMouseEnter={() => setHoveredCategory(r.category_id)}
-                      onMouseLeave={() => setHoveredCategory(null)}
-                      onClick={() => toggleCategorySelection(r.category_id)}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className={`inline-block w-3 h-3 rounded-full transition-transform ${isActive ? 'scale-[1.3]' : ''}`} style={{ backgroundColor: color }} />
-                        <span className={`truncate font-bold ${isActive ? 'text-[#FF5B00] dark:text-[#FF5B00]' : 'text-slate-700 dark:text-slate-300'}`}>{r.category_name}</span>
+                    return (
+                      <div
+                        key={r.category_id}
+                        className={`flex items-center justify-between gap-3 text-xs transition-all duration-200 cursor-pointer p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 ${isDimmed ? 'opacity-30 blur-[0.5px]' : 'opacity-100'
+                          } ${isSelected ? 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600' : 'border border-transparent'}`}
+                        onMouseEnter={() => setHoveredCategory(r.category_id)}
+                        onMouseLeave={() => setHoveredCategory(null)}
+                        onClick={() => toggleCategorySelection(r.category_id)}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`inline-block w-3 h-3 rounded-full transition-transform ${isActive ? 'scale-[1.3]' : ''}`} style={{ backgroundColor: color }} />
+                          <span className={`truncate font-bold ${isActive ? 'text-[primary] dark:text-[primary]' : 'text-slate-700 dark:text-slate-300'}`}>{r.category_name}</span>
+                        </div>
+                        <div className="shrink-0 font-black text-slate-400 dark:text-slate-500">{r.total_tickets} <span className="text-[10px] ml-1">{pct}%</span></div>
                       </div>
-                      <div className="shrink-0 font-black text-slate-400 dark:text-slate-500">{r.total_tickets} <span className="text-[10px] ml-1">{pct}%</span></div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            <div className="lg:col-span-2">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
-                      <th className="px-4 py-4">Категория</th>
-                      <th className="px-4 py-4 text-center">Всего</th>
-                      <th className="px-4 py-4 text-center">Решено</th>
-                      <th className="px-4 py-4 text-center text-red-500">Не решено</th>
-                      <th className="px-4 py-4 text-right hidden lg:table-cell">Ср.время</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                    {filteredAnalytics.map((row: any) => {
-                      const isHovered = hoveredCategory === row.category_id;
-                      const isSelected = selectedCategory === row.category_id;
-                      const isOthersHovered = hoveredCategory !== null && !isHovered;
+              <div className="lg:col-span-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
+                        <th className="px-4 py-4">Категория</th>
+                        <th className="px-4 py-4 text-center">Всего</th>
+                        <th className="px-4 py-4 text-center">Решено</th>
+                        <th className="px-4 py-4 text-center text-red-500">Не решено</th>
+                        <th className="px-4 py-4 text-right hidden lg:table-cell">Ср.время</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                      {filteredAnalytics.map((row: any) => {
+                        const isHovered = hoveredCategory === row.category_id;
+                        const isSelected = selectedCategory === row.category_id;
+                        const isOthersHovered = hoveredCategory !== null && !isHovered;
 
-                      return (
-                        <tr
-                          key={row.category_id}
-                          className={`transition-all duration-200 ${isHovered || isSelected
-                            ? 'bg-orange-50/40 dark:bg-orange-900/10'
-                            : 'hover:bg-slate-50/50 dark:hover:bg-slate-700/50'
-                            } ${isOthersHovered ? 'opacity-40 grayscale-[0.5]' : ''}`}
-                          onMouseEnter={() => setHoveredCategory(row.category_id)}
-                          onMouseLeave={() => setHoveredCategory(null)}
-                        >
-                          <td className="px-4 py-5">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-slate-900 dark:text-slate-100">{row.category_name}</span>
-                              <span className="text-[10px] text-slate-400 font-medium line-clamp-1">{row.description || 'Нет описания'}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-5 text-center">
-                            <button
-                              onClick={() => handleDrillDown(row.category_id)}
-                              className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs hover:bg-[#FF5B00] hover:text-white transition-all mx-auto block"
-                            >
-                              {row.total_tickets}
-                            </button>
-                          </td>
-                          <td className="px-4 py-5 text-center">
-                            <button
-                              onClick={() => handleDrillDown(row.category_id, 'solved')}
-                              className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-black text-xs hover:bg-emerald-500 hover:text-white transition-all mx-auto block"
-                            >
-                              {row.solved_tickets}
-                            </button>
-                          </td>
-                          <td className="px-4 py-5 text-center">
-                            <button
-                              onClick={() => handleDrillDown(row.category_id, 'unsolved')}
-                              className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-black text-xs hover:bg-red-500 hover:text-white transition-all mx-auto block"
-                            >
-                              {row.unsolved_tickets}
-                            </button>
-                          </td>
-                          {(() => {
-                            const formatHoursMinutes = (value: number | null | undefined) => {
-                              if (value == null) return '—';
-                              const hours = Math.floor(value);
-                              const minutes = Math.round((value - hours) * 60);
-                              return `${hours}ч ${minutes}м`;
-                            };
-                            return (
-                              <td className="px-4 py-5 text-right hidden lg:table-cell">
-                                <div className="flex flex-col items-end">
-                                  <span className="font-black text-[#FF5B00]">
-                                    {formatHoursMinutes(row[`avg_${avgPeriod}`])}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">В среднем</span>
-                                </div>
-                              </td>
-                            );
-                          })()}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        return (
+                          <tr
+                            key={row.category_id}
+                            className={`transition-all duration-200 ${isHovered || isSelected
+                              ? 'bg-orange-50/40 dark:bg-orange-900/10'
+                              : 'hover:bg-slate-50/50 dark:hover:bg-slate-700/50'
+                              } ${isOthersHovered ? 'opacity-40 grayscale-[0.5]' : ''}`}
+                            onMouseEnter={() => setHoveredCategory(row.category_id)}
+                            onMouseLeave={() => setHoveredCategory(null)}
+                          >
+                            <td className="px-4 py-5">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-900 dark:text-slate-100">{row.category_name}</span>
+                                <span className="text-[10px] text-slate-400 font-medium line-clamp-1">{row.description || 'Нет описания'}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-5 text-center">
+                              <button
+                                onClick={() => handleDrillDown(row.category_id)}
+                                className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs hover:bg-[primary] hover:text-white transition-all mx-auto block"
+                              >
+                                {row.total_tickets}
+                              </button>
+                            </td>
+                            <td className="px-4 py-5 text-center">
+                              <button
+                                onClick={() => handleDrillDown(row.category_id, 'solved')}
+                                className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-black text-xs hover:bg-emerald-500 hover:text-white transition-all mx-auto block"
+                              >
+                                {row.solved_tickets}
+                              </button>
+                            </td>
+                            <td className="px-4 py-5 text-center">
+                              <button
+                                onClick={() => handleDrillDown(row.category_id, 'unsolved')}
+                                className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-black text-xs hover:bg-red-500 hover:text-white transition-all mx-auto block"
+                              >
+                                {row.unsolved_tickets}
+                              </button>
+                            </td>
+                            {(() => {
+                              const formatHoursMinutes = (value: number | null | undefined) => {
+                                if (value == null) return '—';
+                                const hours = Math.floor(value);
+                                const minutes = Math.round((value - hours) * 60);
+                                return `${hours}ч ${minutes}м`;
+                              };
+                              return (
+                                <td className="px-4 py-5 text-right hidden lg:table-cell">
+                                  <div className="flex flex-col items-end">
+                                    <span className="font-black text-[primary]">
+                                      {formatHoursMinutes(row[`avg_${avgPeriod}`])}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">В среднем</span>
+                                  </div>
+                                </td>
+                              );
+                            })()}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* New Analytics: Channels & Frequency */}
+      {/* Channels & Frequency */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Channel Distribution */}
         <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
-          <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50">
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight italic">Каналы связи</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Распределение по способам обращения</p>
-          </div>
-          <div className="p-8">
-            <div className="space-y-4">
-              {channelAnalytics.length > 0 ? channelAnalytics.map((item, idx) => {
-                const total = channelAnalytics.reduce((sum, i) => sum + Number(i.count), 0);
-                const percent = total > 0 ? Math.round((Number(item.count) / total) * 100) : 0;
-                const channelLabels: any = {
-                    'phone': '📞 Телефон',
-                    'email': '📧 Email',
-                    'telegram': '✈️ Telegram',
-                    'max': '💬 Messenger MAX',
-                    'other': '❓ Другое'
-                };
-                return (
-                  <div key={item.contact_channel} className="space-y-1">
-                    <div className="flex justify-between items-end">
-                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{channelLabels[item.contact_channel] || item.contact_channel}</span>
-                      <span className="text-xs font-black text-[#FF5B00]">{item.count} ({percent}%)</span>
+          <SectionHeader
+            title="Каналы связи"
+            subtitle="Распределение по способам обращения"
+            isOpen={showChannelFreq}
+            onToggle={() => setShowChannelFreq(v => !v)}
+          />
+          <div className={`overflow-hidden transition-all duration-300 ${showChannelFreq ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="p-8">
+              <div className="space-y-4">
+                {channelAnalytics.length > 0 ? channelAnalytics.map((item, idx) => {
+                  const total = channelAnalytics.reduce((sum, i) => sum + Number(i.count), 0);
+                  const percent = total > 0 ? Math.round((Number(item.count) / total) * 100) : 0;
+                  return (
+                    <div key={item.contact_channel} className="space-y-1">
+                      <div className="flex justify-between items-end">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{channelLabels[item.contact_channel] || item.contact_channel}</span>
+                        <span className="text-xs font-black text-[primary]">{item.count} ({percent}%)</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-50 dark:bg-slate-900 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[primary] rounded-full transition-all duration-1000"
+                          style={{ width: `${percent}%`, opacity: 1 - (idx * 0.15) }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 w-full bg-slate-50 dark:bg-slate-900 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#FF5B00] rounded-full transition-all duration-1000" 
-                        style={{ width: `${percent}%`, opacity: 1 - (idx * 0.15) }}
-                      />
-                    </div>
-                  </div>
-                );
-              }) : (
-                <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных</div>
-              )}
+                  );
+                }) : (
+                  <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных</div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Client Frequency */}
         <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
-          <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50">
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight italic">Интенсивность запросов</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Среднее кол-во обращений в месяц после внедрения</p>
-          </div>
-          <div className="p-8">
-            <div className="space-y-4">
-              {frequencyAnalytics.length > 0 ? frequencyAnalytics.map((item) => (
-                <div key={item.client_id} className="flex items-center justify-between p-3 rounded-2xl border border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.client_name}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">С {new Date(item.warranty_start_date).toLocaleDateString('ru-RU')}</span>
+          <SectionHeader
+            title="Интенсивность запросов"
+            subtitle="Среднее кол-во обращений в месяц после внедрения"
+            isOpen={showChannelFreq}
+            onToggle={() => setShowChannelFreq(v => !v)}
+          />
+          <div className={`overflow-hidden transition-all duration-300 ${showChannelFreq ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="p-8">
+              <div className="space-y-4">
+                {frequencyAnalytics.length > 0 ? frequencyAnalytics.map((item) => (
+                  <div key={item.client_id} className="flex items-center justify-between p-3 rounded-2xl border border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.client_name}</span>
+                      <span className="text-[10px] text-slate-400 font-medium">С {new Date(item.warranty_start_date).toLocaleDateString('ru-RU')}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-black text-[primary]">{item.tickets_per_month}</div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">заявок/мес</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-black text-[#FF5B00]">{item.tickets_per_month}</div>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">заявок/мес</div>
-                  </div>
-                </div>
-              )) : (
-                <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных о гарантии</div>
-              )}
+                )) : (
+                  <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных о гарантии</div>
+                )}
+              </div>
             </div>
           </div>
         </div>

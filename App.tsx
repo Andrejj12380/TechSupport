@@ -23,6 +23,9 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true');
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => JSON.parse(localStorage.getItem('search_history') || '[]'));
+
 
   const toggleSidebar = () => {
     const newState = !isSidebarCollapsed;
@@ -92,11 +95,23 @@ const App: React.FC = () => {
       const tab = getTabFromLocation();
       setActiveTab(tab);
     };
-    window.addEventListener('popstate', onPop);
-
     checkAuth();
 
-    return () => window.removeEventListener('popstate', onPop);
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchModalOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchModalOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('keydown', handleGlobalKey);
+    };
   }, []);
 
   // Cleanup large state objects when not in use to save memory
@@ -127,11 +142,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!searchQuery.trim()) return;
+    
+    // Add to history
+    const newHistory = [searchQuery, ...searchHistory.filter(h => h !== searchQuery)].slice(0, 5);
+    setSearchHistory(newHistory);
+    localStorage.setItem('search_history', JSON.stringify(newHistory));
+
     const results = await api.search(searchQuery);
     setSearchResults(results);
+    
+    setIsSearchModalOpen(false);
+    
     // Update URL to /search?q=... so refresh keeps us here
     const url = `/search?q=${encodeURIComponent(searchQuery)}`;
     window.history.pushState({ tab: 'search' }, '', url);
@@ -175,7 +199,7 @@ const App: React.FC = () => {
   if (isAuthChecking) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5B00]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[primary]"></div>
       </div>
     );
   }
@@ -197,36 +221,39 @@ const App: React.FC = () => {
 
         {/* Sidebar */}
         <aside className={`
-        fixed md:static inset-y-0 left-0 ${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 dark:bg-slate-800 text-slate-300 flex flex-col z-50 
+        fixed md:static inset-y-0 left-0 ${isSidebarCollapsed ? 'w-20' : 'w-72'} bg-slate-900 border-r border-slate-800 text-slate-400 flex flex-col z-50 
         transition-all duration-300 ease-in-out md:translate-x-0
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-          <div className="p-6 flex items-center relative">
-            <div className="w-10 h-10 bg-[#FF5B00] rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-[#FF5B00]/20 text-lg shrink-0">TS</div>
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap text-xl font-bold text-white tracking-tight ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
-              Support <span className="text-[#FF5B00]">Motrum</span>
+          <div className="p-6 pb-2 flex items-center relative overflow-hidden">
+            <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center font-black text-white shadow-lg shadow-primary/20 text-lg shrink-0 z-10">TS</div>
+            <span className={`transition-all duration-500 overflow-hidden whitespace-nowrap text-xl font-display font-black text-white tracking-tight z-10 ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+              Support Про
             </span>
+
+            {/* Subtle glow effect */}
+            <div className="absolute top-0 left-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
             {/* Toggle Sidebar Button (Desktop only, floating overlay) */}
             <button
               onClick={toggleSidebar}
-              className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 rounded-full items-center justify-center text-slate-400 hover:text-white hover:bg-[#FF5B00] transition-all shadow-md z-50"
+              className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 border border-slate-700 rounded-full items-center justify-center text-slate-400 hover:text-white hover:bg-primary transition-all shadow-md z-50"
               title={isSidebarCollapsed ? "Развернуть" : "Свернуть"}
             >
-              <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-0' : 'rotate-180'}`} />
+              <ChevronRight className={`w-4 h-4 transition-transform duration-500 ${isSidebarCollapsed ? 'rotate-0' : 'rotate-180'}`} />
             </button>
           </div>
 
-          <nav className="flex-1 mt-6 px-4 space-y-1">
+          <nav className="flex-1 mt-8 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
             <button
               onClick={() => {
                 window.history.pushState({ tab: 'dashboard' }, '', '/');
                 setActiveTab('dashboard');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'dashboard' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'dashboard' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
             >
-              <IconDashboard className={`w-5 h-5 shrink-0 ${activeTab === 'dashboard' ? 'text-[#FF5B00]' : ''}`} />
+              <IconDashboard className={`w-5 h-5 shrink-0 ${activeTab === 'dashboard' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 Дашборд
               </span>
@@ -242,9 +269,9 @@ const App: React.FC = () => {
                 setActiveTab('clients');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'clients' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'clients' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
             >
-              <IconUsers className={`w-5 h-5 shrink-0 ${activeTab === 'clients' ? 'text-[#FF5B00]' : ''}`} />
+              <IconUsers className={`w-5 h-5 shrink-0 ${activeTab === 'clients' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 Клиенты и Объекты
               </span>
@@ -260,9 +287,9 @@ const App: React.FC = () => {
                 setActiveTab('kb');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'kb' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'kb' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
             >
-              <IconBook className={`w-5 h-5 shrink-0 ${activeTab === 'kb' ? 'text-[#FF5B00]' : ''}`} />
+              <IconBook className={`w-5 h-5 shrink-0 ${activeTab === 'kb' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 База Знаний
               </span>
@@ -279,9 +306,9 @@ const App: React.FC = () => {
                   window.history.pushState({ tab: 'logs' }, '', '/logs');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'logs' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'logs' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
               >
-                <IconLogs className={`w-5 h-5 shrink-0 ${activeTab === 'logs' ? 'text-[#FF5B00]' : ''}`} />
+                <IconLogs className={`w-5 h-5 shrink-0 ${activeTab === 'logs' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
                 <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                   Журнал действий
                 </span>
@@ -298,9 +325,9 @@ const App: React.FC = () => {
                 setActiveTab('tickets');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'tickets' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'tickets' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
             >
-              <MessageSquare className={`w-5 h-5 shrink-0 ${activeTab === 'tickets' ? 'text-[#FF5B00]' : ''}`} />
+              <MessageSquare className={`w-5 h-5 shrink-0 ${activeTab === 'tickets' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 Журнал обращений
               </span>
@@ -317,9 +344,9 @@ const App: React.FC = () => {
                   setActiveTab('ppm-calculator');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'ppm-calculator' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'ppm-calculator' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
               >
-                <Calculator className={`w-5 h-5 shrink-0 ${activeTab === 'ppm-calculator' ? 'text-[#FF5B00]' : ''}`} />
+                <Calculator className={`w-5 h-5 shrink-0 ${activeTab === 'ppm-calculator' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
                 <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                   PPM Калькулятор
                 </span>
@@ -337,9 +364,9 @@ const App: React.FC = () => {
                   setActiveTab('users');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'users' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center px-4 py-3 rounded-[14px] transition-all relative group ${activeTab === 'users' ? 'bg-primary text-white font-bold shadow-lg shadow-primary/20' : 'hover:bg-slate-800/80 hover:text-slate-100'}`}
               >
-                <IconUserSettings className={`w-5 h-5 shrink-0 ${activeTab === 'users' ? 'text-[#FF5B00]' : ''}`} />
+                <IconUserSettings className={`w-5 h-5 shrink-0 ${activeTab === 'users' ? 'text-white' : 'group-hover:text-primary transition-colors'}`} />
                 <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                   Пользователи
                 </span>
@@ -393,27 +420,36 @@ const App: React.FC = () => {
 
         {/* Main Area */}
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-          <header className="h-16 bg-white dark:bg-[#18181b] border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 px-4 md:px-6 sticky top-0 z-10 transition-colors">
+          <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 px-6 md:px-10 sticky top-0 z-40 transition-colors">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
+              className="p-2 -ml-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
             >
               <Menu className="w-6 h-6 text-slate-600 dark:text-slate-400" />
             </button>
 
-            <form onSubmit={handleSearch} className="flex-1 max-w-lg relative group">
-              <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FF5B00] transition-colors" />
-              <input
-                type="text"
-                placeholder="Поиск..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] transition-all text-slate-900 dark:text-slate-100"
-              />
-            </form>
+            <div 
+              onClick={() => setIsSearchModalOpen(true)}
+              className="flex-1 max-w-lg relative group cursor-pointer"
+            >
+              <div className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-2.5 pl-11 pr-4 text-sm flex items-center justify-between text-slate-400 hover:border-primary/40 transition-all shadow-sm">
+                <div className="flex items-center gap-2">
+                  <IconSearch className="w-4 h-4" />
+                  <span>Поиск...</span>
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-[10px] font-bold text-slate-400 uppercase">Ctrl</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-[10px] font-bold text-slate-400 uppercase">K</kbd>
+                </div>
+              </div>
+            </div>
 
-            <div className="flex items-center gap-4 ml-4">
-              {/* Header is now clean - only search and maybe some global actions here if needed */}
+            <div className="flex items-center gap-4 ml-auto">
+              <div className="hidden lg:flex flex-col items-right text-right mr-2">
+                 <div className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">{user.username}</div>
+                 <div className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">{user.role}</div>
+              </div>
+              <UserAvatar username={user.username} size="md" />
             </div>
           </header>
 
@@ -445,7 +481,7 @@ const App: React.FC = () => {
                             <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{log.timestamp}</td>
                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{log.user}</td>
                             <td className="px-6 py-4">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${log.action === 'CREATE' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-orange-50 dark:bg-orange-900/20 text-[#FF5B00]'
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${log.action === 'CREATE' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-orange-50 dark:bg-orange-900/20 text-[primary]'
                                 } `}>{log.action}</span>
                             </td>
                             <td className="px-6 py-4 text-slate-600 dark:text-slate-300">{log.entity}</td>
@@ -461,7 +497,7 @@ const App: React.FC = () => {
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 italic uppercase">Результаты поиска</h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">Найдено для запроса: <span className="text-[#FF5B00] font-bold">"{searchQuery}"</span></p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">Найдено для запроса: <span className="text-[primary] font-bold">"{searchQuery}"</span></p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -469,7 +505,7 @@ const App: React.FC = () => {
                       <div
                         key={i}
                         onClick={() => handleSearchNavigate(res)}
-                        className="group bg-white dark:bg-slate-800 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-[#FF5B00]/40 hover:shadow-2xl shadow-slate-200/50 dark:shadow-none transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95"
+                        className="group bg-white dark:bg-slate-800 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-[primary]/40 hover:shadow-2xl shadow-slate-200/50 dark:shadow-none transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95"
                       >
                         <div className="relative z-10">
                           <div className="flex items-center justify-between mb-4">
@@ -482,16 +518,16 @@ const App: React.FC = () => {
                               {res.type}
                             </span>
                             <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ChevronRight className="w-4 h-4 text-[#FF5B00]" />
+                              <ChevronRight className="w-4 h-4 text-[primary]" />
                             </div>
                           </div>
-                          <p className="text-xl font-black text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors line-clamp-2">{res.name}</p>
+                          <p className="text-xl font-black text-slate-900 dark:text-slate-100 group-hover:text-[primary] transition-colors line-clamp-2">{res.name}</p>
                           {res.raw?.address && (
                             <p className="text-xs text-slate-400 mt-2 line-clamp-1 font-medium italic">{res.raw.address}</p>
                           )}
                         </div>
                         {/* Decorative background element */}
-                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-[#FF5B00]/5 rounded-full blur-2xl group-hover:bg-[#FF5B00]/10 transition-colors" />
+                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-[primary]/5 rounded-full blur-2xl group-hover:bg-[primary]/10 transition-colors" />
                       </div>
                     )) : (
                       <div className="col-span-full py-24 text-center">
@@ -508,6 +544,69 @@ const App: React.FC = () => {
             </div>
           </main>
         </div>
+        {/* Global Search Modal */}
+        {isSearchModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh] px-4">
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setIsSearchModalOpen(false)}></div>
+            <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden relative animate-in zoom-in duration-200">
+              <div className="p-6 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-4">
+                <IconSearch className="w-6 h-6 text-primary" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Что вы ищете? (Клиенты, IP, Серийные номера...)"
+                  className="w-full bg-transparent border-none text-xl focus:ring-0 text-slate-900 dark:text-slate-100 placeholder-slate-400 font-display font-medium"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <button 
+                  onClick={() => setIsSearchModalOpen(false)}
+                  className="px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  ESC
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                {searchHistory.length > 0 && !searchQuery && (
+                  <div>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Недавние поиски</h4>
+                    <div className="space-y-1">
+                      {searchHistory.map((h, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setSearchQuery(h); setTimeout(handleSearch, 0); }}
+                          className="w-full text-left px-4 py-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-3 text-slate-700 dark:text-slate-300 font-medium"
+                        >
+                          <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+                          {h}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!searchQuery && (
+                   <div className="py-12 text-center space-y-4">
+                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                        <Calculator className="w-8 h-8 text-primary opacity-40 underline" />
+                      </div>
+                      <p className="text-slate-400 text-sm font-medium">Введите запрос или используйте стрелки для навигации</p>
+                   </div>
+                )}
+              </div>
+              
+              <div className="p-4 bg-slate-100 dark:bg-slate-800/80 border-t dark:border-slate-700 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="flex gap-4">
+                  <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border dark:border-slate-600 inline-block shadow-sm">Enter</kbd> искать</span>
+                  <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border dark:border-slate-600 inline-block shadow-sm">Tab</kbd> переход</span>
+                </div>
+                <span>TechSupport Pro UX</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ToastProvider>
   );

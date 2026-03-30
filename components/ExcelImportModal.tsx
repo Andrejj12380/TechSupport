@@ -210,7 +210,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
         }
     };
 
-    const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-[#FF5B00]";
+    const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-[primary]";
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -246,7 +246,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                                         type="checkbox"
                                         checked={hasHeaders}
                                         onChange={toggleHasHeaders}
-                                        className="rounded border-slate-300 dark:border-slate-700 text-[#FF5B00] bg-white dark:bg-slate-800 focus:ring-[#FF5B00]"
+                                        className="rounded border-slate-300 dark:border-slate-700 text-[primary] bg-white dark:bg-slate-800 focus:ring-[primary]"
                                     />
                                     Первая строка - заголовки
                                 </label>
@@ -275,16 +275,16 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                         <div className="space-y-4">
                             {isImporting ? (
                                 <div className="text-center py-12">
-                                    <div className="text-2xl font-bold text-[#FF5B00] mb-2">{Math.round((progress.current / progress.total) * 100) || 0}%</div>
+                                    <div className="text-2xl font-bold text-[primary] mb-2">{Math.round((progress.current / progress.total) * 100) || 0}%</div>
                                     <p className="text-slate-500">Создание оборудования... ({progress.current} / {progress.total})</p>
                                     <div className="w-full bg-slate-100 rounded-full h-2 mt-4 overflow-hidden">
-                                        <div className="bg-[#FF5B00] h-full transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }}></div>
+                                        <div className="bg-[primary] h-full transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }}></div>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-900/30">
-                                        <div className="text-xs font-bold text-[#FF5B00] uppercase tracking-wider">Линия: {targetLine?.name}</div>
+                                        <div className="text-xs font-bold text-[primary] uppercase tracking-wider">Линия: {targetLine?.name}</div>
                                         <div className="text-xs text-slate-500 dark:text-slate-400">К добавлению: <b>{getTotalToImport()} шт.</b></div>
                                     </div>
 
@@ -306,7 +306,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                                                             <input
                                                                 type="number"
                                                                 min="0"
-                                                                className="w-12 text-center border dark:border-slate-700 rounded p-1 font-bold text-[#FF5B00] bg-white dark:bg-slate-800"
+                                                                className="w-12 text-center border dark:border-slate-700 rounded p-1 font-bold text-[primary] bg-white dark:bg-slate-800"
                                                                 value={importQuantities[row._originalIdx]}
                                                                 onChange={(e) => changeQuantity(row._originalIdx, e.target.value)}
                                                             />
@@ -335,7 +335,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
 
                 <div className="p-5 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
                     {step === 2 && (
-                        <button onClick={prepareData} className="bg-[#FF5B00] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#e65200]">
+                        <button onClick={prepareData} className="bg-[primary] text-white px-6 py-2 rounded-xl font-bold hover:bg-primary/90">
                             К списку →
                         </button>
                     )}
@@ -343,7 +343,7 @@ const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ clientId, targetLin
                         <button
                             onClick={executeImport}
                             disabled={getTotalToImport() === 0}
-                            className={`px-6 py-2 rounded-xl font-bold shadow-lg transition-all ${getTotalToImport() === 0 ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-600 cursor-not-allowed shadow-none' : 'bg-[#FF5B00] text-white hover:bg-[#e65200] shadow-[#FF5B00]/20'}`}
+                            className={`px-6 py-2 rounded-xl font-bold shadow-lg transition-all ${getTotalToImport() === 0 ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-600 cursor-not-allowed shadow-none' : 'bg-[primary] text-white hover:bg-primary/90 shadow-[primary]/20'}`}
                         >
                             Импортировать ({getTotalToImport()})
                         </button>

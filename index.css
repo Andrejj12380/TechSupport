@@ -1,71 +1,73 @@
-/* Fallback and custom styles for Markdown headers to ensure they are distinct */
-.prose h1 {
-  font-size: 2.25rem;
-  /* 36px */
-  margin-top: 0;
-  margin-bottom: 0.8888889em;
-  line-height: 1.1111111;
+/* Glassmorphism Utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.prose h2 {
-  font-size: 1.5rem;
-  /* 24px */
-  margin-top: 2em;
-  margin-bottom: 1em;
-  line-height: 1.3333333;
+.dark .glass-dark {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.prose h3 {
-  font-size: 1.25rem;
-  /* 20px */
-  margin-top: 1.6em;
-  margin-bottom: 0.6em;
-  line-height: 1.6;
+/* Base Component Enhancements */
+button:focus-visible, 
+input:focus-visible, 
+select:focus-visible {
+  outline: 2px solid #FF5B00;
+  outline-offset: 2px;
 }
 
-.prose h4 {
-  font-size: 1rem;
-  /* 16px */
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
-  line-height: 1.5;
+/* Global Transition Defaults */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar for layout-defined containers */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: #334155 #0f172a;
+}
+
+/* Fallback and custom styles for Markdown headers */
+.prose {
+  max-width: none;
+}
+
+.prose h1, .prose h2, .prose h3 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .prose img {
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  margin-top: 2em;
-  margin-bottom: 2em;
-}
-
-.dark .prose img {
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
-}
-
-/* Remove literal backticks added by Tailwind Typography for inline code */
-.prose code::before,
-.prose code::after {
-  content: none !important;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 /* Tab transition animation */
-@keyframes fadeIn {
+@keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 180ms ease-out;
+.animate-slideUp {
+  animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* Smooth expansion for auto-height sections */
 .expand-grid {
   display: grid;
   grid-template-rows: 0fr;

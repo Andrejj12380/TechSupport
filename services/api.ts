@@ -397,6 +397,13 @@ class ApiService {
     });
   }
 
+  async updateEquipmentOrder(id: number, display_order: number) {
+    return this.request(`/equipment/${id}/order`, {
+      method: 'PATCH',
+      body: JSON.stringify({ display_order }),
+    });
+  }
+
   async deleteEquipment(id: number) {
     return this.request(`/equipment/${id}`, {
       method: 'DELETE',

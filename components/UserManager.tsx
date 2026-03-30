@@ -106,7 +106,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                 {currentUser.role === 'admin' && (
                     <button
                         onClick={() => handleOpenModal()}
-                        className="bg-[#FF5B00] text-white px-6 py-3 rounded-2xl font-black hover:bg-[#e65200] transition-all flex items-center gap-2 shadow-lg shadow-[#FF5B00]/25 active:scale-95"
+                        className="bg-[primary] text-white px-6 py-3 rounded-2xl font-black hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-[primary]/25 active:scale-95"
                     >
                         <span>+ Добавить пользователя</span>
                     </button>
@@ -136,7 +136,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                 <tr>
                                     <td colSpan={4} className="px-8 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
-                                            <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-[#FF5B00] rounded-full animate-spin" />
+                                            <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-[primary] rounded-full animate-spin" />
                                             <span className="text-slate-400 font-bold uppercase text-xs tracking-widest">Загрузка данных...</span>
                                         </div>
                                     </td>
@@ -171,7 +171,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                                 <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
                                                     <button
                                                         onClick={() => handleOpenModal(user)}
-                                                        className="p-2.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-[#FF5B00] hover:bg-[#FF5B00]/5 dark:hover:bg-[#FF5B00]/10 transition-all"
+                                                        className="p-2.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-[primary] hover:bg-[primary]/5 dark:hover:bg-[primary]/10 transition-all"
                                                         title="Редактировать"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -224,7 +224,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                     required
                                     value={formData.username}
                                     onChange={e => setFormData({ ...formData, username: e.target.value })}
-                                    className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                                     placeholder="Напр. tech_lead_01"
                                 />
                             </div>
@@ -239,7 +239,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                         required={!editingUser}
                                         value={formData.password}
                                         onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 pr-12"
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 pr-12"
                                         placeholder={editingUser ? "Оставьте пустым для сохранения" : "Минимум 6 символов"}
                                     />
                                     <button
@@ -252,7 +252,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                 </div>
                                 {editingUser && (
                                     <div className="mt-3 flex items-start gap-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-4 rounded-2xl">
-                                        <Info size={16} className="text-[#FF5B00] shrink-0 mt-0.5" />
+                                        <Info size={16} className="text-[primary] shrink-0 mt-0.5" />
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                                             Пароли хранятся в зашифрованном виде (Bcrypt). Вы можете изменить его, установив новое значение.
                                         </p>
@@ -266,7 +266,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                     <select
                                         value={formData.role}
                                         onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all cursor-pointer"
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all cursor-pointer"
                                     >
                                         <option value="admin">Администратор</option>
                                         <option value="engineer">Инженер</option>
@@ -280,7 +280,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                         type="email"
                                         value={formData.email}
                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[#FF5B00] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-[primary] rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                                         placeholder="user@example.com"
                                     />
                                 </div>
@@ -296,7 +296,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-6 py-4 bg-[#FF5B00] text-white rounded-2xl font-black hover:bg-[#e65200] shadow-xl shadow-[#FF5B00]/25 transition-all active:scale-95"
+                                    className="flex-1 px-6 py-4 bg-[primary] text-white rounded-2xl font-black hover:bg-primary/90 shadow-xl shadow-[primary]/25 transition-all active:scale-95"
                                 >
                                     {editingUser ? 'Сохранить' : 'Создать'}
                                 </button>
