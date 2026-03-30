@@ -243,6 +243,14 @@ class ApiService {
     return this.request(url);
   }
 
+  async getTicketChannelAnalytics(): Promise<any[]> {
+    return this.request('/tickets/analytics/channels');
+  }
+
+  async getTicketFrequencyAnalytics(): Promise<any[]> {
+    return this.request('/tickets/analytics/frequency');
+  }
+
   // Health check
   async healthCheck() {
     return this.request('/health');

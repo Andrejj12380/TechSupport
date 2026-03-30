@@ -99,6 +99,17 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // Cleanup large state objects when not in use to save memory
+  useEffect(() => {
+    if (activeTab !== 'logs') {
+      setLogs([]);
+    }
+    if (activeTab !== 'search') {
+      setSearchResults([]);
+      setSearchQuery('');
+    }
+  }, [activeTab]);
+
   const handleLogout = async () => {
     await api.logout();
     setUser(null);

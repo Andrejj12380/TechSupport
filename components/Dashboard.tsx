@@ -17,6 +17,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [hoveredCategory, setHoveredCategory] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [showAllExpirations, setShowAllExpirations] = useState(false);
+  const [channelAnalytics, setChannelAnalytics] = useState<any[]>([]);
+  const [frequencyAnalytics, setFrequencyAnalytics] = useState<any[]>([]);
 
   const handleDrillDown = (categoryId?: number, status?: string, ticketId?: number) => {
     const params = new URLSearchParams();
@@ -44,79 +46,107 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   useEffect(() => {
     const loadAnalytics = async () => {
       try {
-        setCategoryAnalytics(await api.getTicketCategoryAnalytics(avgPeriod));
+        const [catData, chanData, freqData] = await Promise.all([
+            api.getTicketCategoryAnalytics(avgPeriod),
+            api.getTicketChannelAnalytics(),
+            api.getTicketFrequencyAnalytics()
+        ]);
+        setCategoryAnalytics(catData);
+        setChannelAnalytics(chanData);
+        setFrequencyAnalytics(freqData);
       } catch (e) {
         setCategoryAnalytics([]);
+        setChannelAnalytics([]);
+        setFrequencyAnalytics([]);
       }
     };
     loadAnalytics();
   }, [avgPeriod]);
 
   // Line statistics
-  const now = new Date();
-
-  const lineSupportInfo = lines.map(line => {
-    const paidStart = line.paid_support_start_date ? new Date(line.paid_support_start_date) : null;
-    const paidEnd = line.paid_support_end_date ? new Date(line.paid_support_end_date) : null;
-    const warrantyStart = line.warranty_start_date ? new Date(line.warranty_start_date) : null;
-    const warrantyEnd = warrantyStart ? new Date(warrantyStart.getTime()) : null;
-    if (warrantyEnd) warrantyEnd.setFullYear(warrantyEnd.getFullYear() + 1);
-
-    const onPaid = paidStart && paidEnd && now >= paidStart && now <= paidEnd;
-    const onWarranty = warrantyStart && warrantyEnd && now >= warrantyStart && now <= warrantyEnd;
-    const isActive = onPaid || onWarranty;
-
-    const paidExpired = paidEnd && now > paidEnd;
-    const warrantyExpired = warrantyEnd && now > warrantyEnd;
-    const isExpired = (paidExpired || warrantyExpired) && !isActive;
-
-    return { ...line, isActive, isExpired };
-  });
-
-  const linesOnSupportCount = lineSupportInfo.filter(l => l.isActive).length;
-  const linesExpiredCount = lineSupportInfo.filter(l => l.isExpired).length;
-
-  const clientsOnSupportCount = new Set(
-    lineSupportInfo.filter(l => l.isActive).map(l => l.client_id)
-  ).size;
-
-  const clientsExpiredCount = new Set(
-    lineSupportInfo.filter(l => l.isExpired).map(l => l.client_id)
-  ).size;
-
-  // Trend: tickets created this week vs last week
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const ticketsThisWeek = tickets.filter(t => new Date(t.created_at) >= oneWeekAgo).length;
-  const ticketsLastWeek = tickets.filter(t => {
-    const d = new Date(t.created_at);
-    return d >= twoWeeksAgo && d < oneWeekAgo;
-  }).length;
-  const ticketTrendDelta = ticketsThisWeek - ticketsLastWeek;
-
-  // Lines expiring within 30 and 60 days
-  const expiringLines = lineSupportInfo
-    .filter(l => l.isActive)
-    .map(l => {
-      const paidEnd = l.paid_support_end_date ? new Date(l.paid_support_end_date) : null;
-      const warrantyStart = l.warranty_start_date ? new Date(l.warranty_start_date) : null;
+  const lineSupportInfo = React.useMemo(() => {
+    const now = new Date();
+    return lines.map(line => {
+      const paidStart = line.paid_support_start_date ? new Date(line.paid_support_start_date) : null;
+      const paidEnd = line.paid_support_end_date ? new Date(line.paid_support_end_date) : null;
+      const warrantyStart = line.warranty_start_date ? new Date(line.warranty_start_date) : null;
       const warrantyEnd = warrantyStart ? new Date(warrantyStart.getTime()) : null;
       if (warrantyEnd) warrantyEnd.setFullYear(warrantyEnd.getFullYear() + 1);
 
-      let endDate: Date | null = null;
-      let supportType = '';
-      if (paidEnd && now <= paidEnd) { endDate = paidEnd; supportType = 'Техподдержка'; }
-      else if (warrantyEnd && now <= warrantyEnd) { endDate = warrantyEnd; supportType = 'Гарантия'; }
+      const onPaid = paidStart && paidEnd && now >= paidStart && now <= paidEnd;
+      const onWarranty = warrantyStart && warrantyEnd && now >= warrantyStart && now <= warrantyEnd;
+      const isActive = onPaid || onWarranty;
 
-      if (!endDate) return null;
-      const daysLeft = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return { ...l, endDate, daysLeft, supportType };
-    })
-    .filter(Boolean)
-    .filter((l: any) => l.daysLeft <= 60)
-    .sort((a: any, b: any) => a.daysLeft - b.daysLeft) as any[];
+      const paidExpired = paidEnd && now > paidEnd;
+      const warrantyExpired = warrantyEnd && now > warrantyEnd;
+      const isExpired = (paidExpired || warrantyExpired) && !isActive;
 
-  const linesExpiringSoon30 = expiringLines.filter((l: any) => l.daysLeft <= 30).length;
+      return { ...line, isActive, isExpired };
+    });
+  }, [lines]);
+
+  const stats = React.useMemo(() => {
+    const activeInfo = lineSupportInfo.filter(l => l.isActive);
+    const expiredInfo = lineSupportInfo.filter(l => l.isExpired);
+
+    const activeClientIds = new Set(activeInfo.map(l => l.client_id));
+    const expiredClientIds = new Set(expiredInfo.map(l => l.client_id));
+
+    return {
+      linesOnSupportCount: activeInfo.length,
+      linesExpiredCount: expiredInfo.length,
+      clientsOnSupportCount: activeClientIds.size,
+      clientsExpiredCount: expiredClientIds.size
+    };
+  }, [lineSupportInfo]);
+
+  // Trend: tickets created this week vs last week
+  const trend = React.useMemo(() => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const ticketsThisWeek = tickets.filter(t => new Date(t.created_at) >= oneWeekAgo).length;
+    const ticketsLastWeek = tickets.filter(t => {
+      const d = new Date(t.created_at);
+      return d >= twoWeeksAgo && d < oneWeekAgo;
+    }).length;
+
+    return {
+      ticketsThisWeek,
+      ticketsLastWeek,
+      ticketTrendDelta: ticketsThisWeek - ticketsLastWeek
+    };
+  }, [tickets]);
+
+  // Lines expiring within 30 and 60 days
+  const expiringLines = React.useMemo(() => {
+    const now = new Date();
+    return lineSupportInfo
+      .filter(l => l.isActive)
+      .map(l => {
+        const paidEnd = l.paid_support_end_date ? new Date(l.paid_support_end_date) : null;
+        const warrantyStart = l.warranty_start_date ? new Date(l.warranty_start_date) : null;
+        const warrantyEnd = warrantyStart ? new Date(warrantyStart.getTime()) : null;
+        if (warrantyEnd) warrantyEnd.setFullYear(warrantyEnd.getFullYear() + 1);
+
+        let endDate: Date | null = null;
+        let supportType = '';
+        if (paidEnd && now <= paidEnd) { endDate = paidEnd; supportType = 'Техподдержка'; }
+        else if (warrantyEnd && now <= warrantyEnd) { endDate = warrantyEnd; supportType = 'Гарантия'; }
+
+        if (!endDate) return null;
+        const daysLeft = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return { ...l, endDate, daysLeft, supportType };
+      })
+      .filter((l): l is NonNullable<typeof l> => l !== null)
+      .filter((l: any) => l.daysLeft <= 60)
+      .sort((a: any, b: any) => a.daysLeft - b.daysLeft);
+  }, [lineSupportInfo]);
+
+  const linesExpiringSoon30 = React.useMemo(() =>
+    expiringLines.filter((l: any) => l.daysLeft <= 30).length,
+    [expiringLines]);
 
   // Find client name by client_id
   const getClientName = (clientId: number) => clients.find(c => c.id === clientId)?.name || '—';
@@ -125,64 +155,65 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const openTickets = tickets.filter(t => t.status === 'in_progress' || t.status === 'on_hold');
   const displayedTickets = openTickets.slice(0, 5);
 
-  const pieRows = categoryAnalytics
-    .map((r: any) => ({ ...r, total_tickets: Number(r.total_tickets ?? 0) }))
-    .filter((r: any) => r.total_tickets > 0);
+  const piePaths = React.useMemo(() => {
+    const pieRows = categoryAnalytics
+      .map((r: any) => ({ ...r, total_tickets: Number(r.total_tickets ?? 0) }))
+      .filter((r: any) => r.total_tickets > 0);
 
-  const pieTotal = pieRows.reduce((sum: number, r: any) => sum + r.total_tickets, 0);
-  const pieColors = ['#FF5B00', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#64748B'];
+    const pieTotal = pieRows.reduce((sum: number, r: any) => sum + r.total_tickets, 0);
+    const pieColors = ['#FF5B00', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#64748B'];
 
-  // Helper to create SVG paths
-  const getCoordinatesForPercent = (percent: number) => {
-    const x = Math.cos(2 * Math.PI * percent);
-    const y = Math.sin(2 * Math.PI * percent);
-    return [x, y];
-  };
+    const getCoordinatesForPercent = (percent: number) => {
+      const x = Math.cos(2 * Math.PI * percent);
+      const y = Math.sin(2 * Math.PI * percent);
+      return [x, y];
+    };
 
-  let cumulativePercent = 0;
-  const piePaths = pieRows.map((r: any, idx: number) => {
-    const startPercent = cumulativePercent;
-    const percent = r.total_tickets / pieTotal;
-    cumulativePercent += percent;
+    let cumulativePercent = 0;
+    const paths = pieRows.map((r: any, idx: number) => {
+      const startPercent = cumulativePercent;
+      const percent = r.total_tickets / pieTotal;
+      cumulativePercent += percent;
 
-    const [startX, startY] = getCoordinatesForPercent(startPercent);
-    const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
+      const largeArcFlag = percent > 0.5 ? 1 : 0;
+      const outerR = 1;
+      const innerR = 0.75;
 
-    const largeArcFlag = percent > 0.5 ? 1 : 0;
+      const startXOuter = Math.cos(2 * Math.PI * startPercent - Math.PI / 2) * outerR;
+      const startYOuter = Math.sin(2 * Math.PI * startPercent - Math.PI / 2) * outerR;
+      const endXOuter = Math.cos(2 * Math.PI * cumulativePercent - Math.PI / 2) * outerR;
+      const endYOuter = Math.sin(2 * Math.PI * cumulativePercent - Math.PI / 2) * outerR;
 
-    // Create donut slice path (outer radius 1, inner radius 0.7)
-    // Note: SVG coordinates are usually (x,y), we'll center at 0,0 and scale up
-    // We start from -PI/2 (top) so we rotate -90deg in SVG transform or here
+      const startXInner = Math.cos(2 * Math.PI * startPercent - Math.PI / 2) * innerR;
+      const startYInner = Math.sin(2 * Math.PI * startPercent - Math.PI / 2) * innerR;
+      const endXInner = Math.cos(2 * Math.PI * cumulativePercent - Math.PI / 2) * innerR;
+      const endYInner = Math.sin(2 * Math.PI * cumulativePercent - Math.PI / 2) * innerR;
 
-    // Let's use simple logic: move to outer start, arc to outer end, line to inner end, arc to inner start, close
-    const outerR = 1;
-    const innerR = 0.75; // Donut thickness
+      const pathData = [
+        `M ${startXOuter} ${startYOuter}`,
+        `A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${endXOuter} ${endYOuter}`,
+        `L ${endXInner} ${endYInner}`,
+        `A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${startXInner} ${startYInner}`,
+        'Z'
+      ].join(' ');
 
-    const startXOuter = Math.cos(2 * Math.PI * startPercent - Math.PI / 2) * outerR;
-    const startYOuter = Math.sin(2 * Math.PI * startPercent - Math.PI / 2) * outerR;
-    const endXOuter = Math.cos(2 * Math.PI * cumulativePercent - Math.PI / 2) * outerR;
-    const endYOuter = Math.sin(2 * Math.PI * cumulativePercent - Math.PI / 2) * outerR;
-
-    const startXInner = Math.cos(2 * Math.PI * startPercent - Math.PI / 2) * innerR;
-    const startYInner = Math.sin(2 * Math.PI * startPercent - Math.PI / 2) * innerR;
-    const endXInner = Math.cos(2 * Math.PI * cumulativePercent - Math.PI / 2) * innerR;
-    const endYInner = Math.sin(2 * Math.PI * cumulativePercent - Math.PI / 2) * innerR;
-
-    const pathData = [
-      `M ${startXOuter} ${startYOuter}`,
-      `A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${endXOuter} ${endYOuter}`,
-      `L ${endXInner} ${endYInner}`,
-      `A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${startXInner} ${startYInner}`,
-      'Z'
-    ].join(' ');
+      return {
+        pathData,
+        color: pieColors[idx % pieColors.length],
+        category: r,
+        percent: Math.round(percent * 100)
+      };
+    });
 
     return {
-      pathData,
-      color: pieColors[idx % pieColors.length],
-      category: r,
-      percent: Math.round(percent * 100)
+      paths,
+      pieTotal,
+      pieRows,
+      pieColors
     };
-  });
+  }, [categoryAnalytics]);
+
+  const { paths, pieTotal, pieRows, pieColors } = piePaths;
 
   const hoveredData = hoveredCategory
     ? pieRows.find((r: any) => r.category_id === hoveredCategory)
@@ -193,9 +224,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     ? pieColors[pieRows.indexOf(hoveredData) % pieColors.length]
     : null;
 
-  const filteredAnalytics = selectedCategory
-    ? categoryAnalytics.filter((r: any) => r.category_id === selectedCategory)
-    : categoryAnalytics;
+  const filteredAnalytics = React.useMemo(() =>
+    selectedCategory
+      ? categoryAnalytics.filter((r: any) => r.category_id === selectedCategory)
+      : categoryAnalytics,
+    [selectedCategory, categoryAnalytics]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -238,21 +271,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Обращения за неделю</p>
           <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{ticketsThisWeek}</span>
-            {ticketTrendDelta !== 0 && (
-              <span className={`flex items-center gap-0.5 text-xs font-black ${ticketTrendDelta > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                {ticketTrendDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                {Math.abs(ticketTrendDelta)}
+            <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
+            {trend.ticketTrendDelta !== 0 && (
+              <span className={`flex items-center gap-0.5 text-xs font-black ${trend.ticketTrendDelta > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                {trend.ticketTrendDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {Math.abs(trend.ticketTrendDelta)}
               </span>
             )}
-            {ticketTrendDelta === 0 && (
+            {trend.ticketTrendDelta === 0 && (
               <span className="flex items-center gap-0.5 text-xs font-black text-slate-400">
                 <Minus className="w-3.5 h-3.5" /> 0
               </span>
             )}
           </div>
           <p className="text-xs font-bold text-slate-400 mt-2">
-            <span className="text-slate-500">{ticketsLastWeek}</span> за прошлую неделю
+            <span className="text-slate-500">{trend.ticketsLastWeek}</span> за прошлую неделю
           </p>
         </button>
 
@@ -270,11 +303,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">На техподдержке</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-indigo-600 dark:text-indigo-400">{clientsOnSupportCount}</span>
+            <span className="text-4xl font-black text-indigo-600 dark:text-indigo-400">{stats.clientsOnSupportCount}</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Клиентов</span>
           </div>
           <p className="text-xs font-bold text-slate-400 mt-2">
-            <span className="text-indigo-500">{linesOnSupportCount}</span> активных линий
+            <span className="text-indigo-500">{stats.linesOnSupportCount}</span> активных линий
             {linesExpiringSoon30 > 0 && (
               <span className="ml-2 text-amber-500">⚠ {linesExpiringSoon30} истекают скоро</span>
             )}
@@ -295,11 +328,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Поддержка истекла</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-red-500">{clientsExpiredCount}</span>
+            <span className="text-4xl font-black text-red-500">{stats.clientsExpiredCount}</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Клиентов</span>
           </div>
           <p className="text-xs font-bold text-slate-400 mt-2">
-            <span className="text-red-400">{linesExpiredCount}</span> без поддержки
+            <span className="text-red-400">{stats.linesExpiredCount}</span> без поддержки
           </p>
         </button>
       </div>
@@ -485,7 +518,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 <div className="relative w-56 h-56 group">
                   {pieTotal > 0 ? (
                     <svg viewBox="-1 -1 2 2" className="w-56 h-56 transform -rotate-0 drop-shadow-2xl">
-                      {piePaths.map((slice) => (
+                      {paths.map((slice: any) => (
                         <path
                           key={slice.category.category_id}
                           d={slice.pathData}
@@ -643,6 +676,74 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* New Analytics: Channels & Frequency */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Channel Distribution */}
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight italic">Каналы связи</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Распределение по способам обращения</p>
+          </div>
+          <div className="p-8">
+            <div className="space-y-4">
+              {channelAnalytics.length > 0 ? channelAnalytics.map((item, idx) => {
+                const total = channelAnalytics.reduce((sum, i) => sum + Number(i.count), 0);
+                const percent = total > 0 ? Math.round((Number(item.count) / total) * 100) : 0;
+                const channelLabels: any = {
+                    'phone': '📞 Телефон',
+                    'email': '📧 Email',
+                    'telegram': '✈️ Telegram',
+                    'max': '💬 Messenger MAX',
+                    'other': '❓ Другое'
+                };
+                return (
+                  <div key={item.contact_channel} className="space-y-1">
+                    <div className="flex justify-between items-end">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{channelLabels[item.contact_channel] || item.contact_channel}</span>
+                      <span className="text-xs font-black text-[#FF5B00]">{item.count} ({percent}%)</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-50 dark:bg-slate-900 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-[#FF5B00] rounded-full transition-all duration-1000" 
+                        style={{ width: `${percent}%`, opacity: 1 - (idx * 0.15) }}
+                      />
+                    </div>
+                  </div>
+                );
+              }) : (
+                <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Client Frequency */}
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight italic">Интенсивность запросов</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Среднее кол-во обращений в месяц после внедрения</p>
+          </div>
+          <div className="p-8">
+            <div className="space-y-4">
+              {frequencyAnalytics.length > 0 ? frequencyAnalytics.map((item) => (
+                <div key={item.client_id} className="flex items-center justify-between p-3 rounded-2xl border border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.client_name}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">С {new Date(item.warranty_start_date).toLocaleDateString('ru-RU')}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-black text-[#FF5B00]">{item.tickets_per_month}</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">заявок/мес</div>
+                  </div>
+                </div>
+              )) : (
+                <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных о гарантии</div>
+              )}
             </div>
           </div>
         </div>

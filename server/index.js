@@ -440,6 +440,53 @@ app.get('/api/tickets/analytics/categories', authenticateToken, async (req, res)
   }
 });
 
+app.get('/api/tickets/analytics/channels', authenticateToken, async (req, res) => {
+  try {
+    const query = `
+      SELECT contact_channel, COUNT(*) as count
+      FROM support_tickets
+      GROUP BY contact_channel
+      ORDER BY count DESC
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching channel analytics:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/tickets/analytics/frequency', authenticateToken, async (req, res) => {
+  try {
+    const query = `
+      WITH ClientStartDates AS (
+          SELECT c.id as client_id, c.name as client_name, MIN(pl.warranty_start_date) as start_date
+          FROM clients c
+          JOIN sites s ON s.client_id = c.id
+          JOIN production_lines pl ON pl.site_id = s.id
+          WHERE pl.warranty_start_date IS NOT NULL
+          GROUP BY c.id, c.name
+      )
+      SELECT 
+          csd.client_id, 
+          csd.client_name, 
+          csd.start_date as warranty_start_date,
+          COUNT(t.id) as total_tickets,
+          ROUND(CAST(COUNT(t.id) AS NUMERIC) / NULLIF(EXTRACT(YEAR FROM AGE(NOW(), csd.start_date)) * 12 + EXTRACT(MONTH FROM AGE(NOW(), csd.start_date)) + 1, 0), 2) as tickets_per_month
+      FROM ClientStartDates csd
+      LEFT JOIN support_tickets t ON t.client_id = csd.client_id AND t.reported_at >= csd.start_date::timestamp with time zone
+      GROUP BY csd.client_id, csd.client_name, csd.start_date
+      ORDER BY tickets_per_month DESC NULLS LAST
+      LIMIT 10;
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching frequency analytics:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Test database connection
 app.get('/api/health', async (req, res) => {
   try {
@@ -1690,7 +1737,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 // Create a ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
   if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
-  const { client_id, line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id } = req.body;
+  const { client_id, line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id, contact_channel } = req.body;
   try {
     // Basic validation
     if (!client_id) return res.status(400).json({ error: 'client_id is required' });
@@ -1703,10 +1750,10 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO support_tickets 
-            (client_id, line_id, user_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, CURRENT_TIMESTAMP), $10::timestamptz, $11)
+            (client_id, line_id, user_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id, contact_channel)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, CURRENT_TIMESTAMP), $10::timestamptz, $11, $12)
             RETURNING *`,
-      [client_id, line_id, req.user.id, contact_name, problem_description, solution_description, status || 'in_progress', support_line, reported_at || null, resolved_at || null, resolvedCategoryId]
+      [client_id, line_id, req.user.id, contact_name, problem_description, solution_description, status || 'in_progress', support_line, reported_at || null, resolved_at || null, resolvedCategoryId, contact_channel || 'phone']
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -1718,7 +1765,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
 // Update a ticket
 app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id } = req.body;
+  const { line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id, contact_channel } = req.body;
   try {
     // Only allow engineer or admin to update
     if (req.user.role === 'viewer') {
@@ -1739,10 +1786,10 @@ app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
       `UPDATE support_tickets 
             SET line_id = $1, contact_name = $2, problem_description = $3, 
                 solution_description = $4, status = $5, support_line = $6, reported_at = $7::timestamptz, resolved_at = $8::timestamptz, updated_at = CURRENT_TIMESTAMP
-                , category_id = COALESCE($9, category_id), user_id = COALESCE($11, user_id)
+                , category_id = COALESCE($9, category_id), user_id = COALESCE($11, user_id), contact_channel = COALESCE($12, contact_channel)
             WHERE id = $10
             RETURNING *`,
-      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id, req.body.user_id || null]
+      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id, req.body.user_id || null, contact_channel]
     );
 
     if (result.rows.length === 0) {

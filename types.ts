@@ -199,6 +199,7 @@ export interface SupportTicket {
   // Время работы
   work_started_at?: string | null;
   total_work_minutes?: number;
+  contact_channel?: string;
   created_at: string;
   updated_at: string;
   client_name?: string;

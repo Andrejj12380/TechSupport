@@ -5,20 +5,20 @@ import { Client, Site, ProductionLine, Equipment, RemoteAccess, Instruction, Equ
 import { IconChevronRight, IconCopy, IconChevronLeft } from './Icons';
 import ExcelImportModal from './ExcelImportModal';
 
-const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm bg-[#F8FAFC] dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#FF5B00]/10 focus:border-[#FF5B00] outline-none transition-all";
+const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-2xl p-3 lg:p-4 text-sm bg-[#F8FAFC] dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#FF5B00]/10 focus:border-[#FF5B00] outline-none transition-all";
 
 const Modal = ({ title, children, onClose, onSubmit }: { title: string; children?: React.ReactNode; onClose: () => void; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void }) => (
-  <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-150 border border-slate-200 dark:border-slate-800">
-      <div className="p-5 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 shrink-0">
-        <h3 className="font-bold text-slate-800 dark:text-slate-100">{title}</h3>
+  <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-150 border border-slate-200 dark:border-slate-800">
+      <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 shrink-0">
+        <h3 className="font-black text-lg text-slate-800 dark:text-slate-100">{title}</h3>
         <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-2xl leading-none">&times;</button>
       </div>
       <form onSubmit={onSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
         {children}
         <div className="flex gap-3 pt-6 border-t dark:border-slate-800 mt-4">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-300 transition-colors">Отмена</button>
-          <button type="submit" className="flex-1 px-4 py-2.5 bg-[#FF5B00] text-white rounded-xl text-sm font-bold hover:bg-[#e65200] shadow-lg shadow-[#FF5B00]/20 transition-all">Сохранить</button>
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-300 transition-colors">Отмена</button>
+          <button type="submit" className="flex-1 px-4 py-3 bg-[#FF5B00] text-white rounded-full text-sm font-bold hover:bg-[#e65200] shadow-md shadow-[#FF5B00]/20 transition-all">Сохранить</button>
         </div>
       </form>
     </div>
@@ -30,8 +30,7 @@ interface ClientManagerProps {
   user: User;
 }
 
-const getLineStatus = (line: ProductionLine) => {
-  const now = new Date();
+const getLineStatus = (line: ProductionLine, now: Date) => {
   const warrantyStart = line.warranty_start_date ? new Date(line.warranty_start_date) : null;
 
   // Calculate relative dates
@@ -49,13 +48,18 @@ const getLineStatus = (line: ProductionLine) => {
   const formatRemaining = (endDate: Date) => {
     const diff = endDate.getTime() - now.getTime();
     if (diff < 0) return 'Истекла';
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const months = Math.floor(days / 30);
-    const years = Math.floor(days / 365);
 
-    if (days < 30) return `Осталось ${days} дн.`;
-    if (months < 12) return `Осталось ${months} мес. ${days % 30} дн.`;
-    return `Осталось ${years} г. ${months % 12} мес.`;
+    const totalDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (totalDays < 30) return `Осталось ${totalDays} дн.`;
+
+    const years = Math.floor(totalDays / 365);
+    const months = Math.floor((totalDays % 365) / 30);
+    const days = (totalDays % 365) % 30;
+
+    if (years === 0) {
+      return `Осталось ${months} мес.` + (days > 0 ? ` ${days} дн.` : '');
+    }
+    return `Осталось ${years} г.` + (months > 0 ? ` ${months} мес.` : '');
   };
 
   // 1. Paid support (highest priority)
@@ -293,6 +297,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
     url.searchParams.set('line', line.id.toString());
     url.searchParams.delete('equipment');
     window.history.pushState({}, '', url.toString());
+
+    // Auto-scroll to top to ensure the selected line's details are visible in view
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const changeEquipStatus = async (id: number, status: EquipmentStatus) => {
@@ -602,6 +609,56 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
     }
   };
 
+  const currentNow = React.useMemo(() => new Date(), []);
+
+  const filteredClients = React.useMemo(() => {
+    return clients.filter(c => {
+      if (supportFilter === 'all') return true;
+      const clientLines = allLines.filter(l => l.client_id === c.id);
+      if (supportFilter === 'active') {
+        return clientLines.some(l => {
+          const s = getLineStatus(l, currentNow);
+          return s.status === 'paid' || s.status === 'warranty';
+        });
+      }
+      if (supportFilter === 'expired') {
+        return clientLines.some(l => getLineStatus(l, currentNow).status === 'expired');
+      }
+      return true;
+    }).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  }, [clients, supportFilter, allLines, currentNow]);
+
+  const filteredSites = React.useMemo(() => {
+    return sites.filter(s => {
+      if (supportFilter === 'all') return true;
+      const siteLines = allLines.filter(l => l.site_id === s.id);
+      if (supportFilter === 'active') {
+        return siteLines.some(l => {
+          const st = getLineStatus(l, currentNow);
+          return st.status === 'paid' || st.status === 'warranty';
+        });
+      }
+      if (supportFilter === 'expired') {
+        return siteLines.some(l => getLineStatus(l, currentNow).status === 'expired');
+      }
+      return true;
+    });
+  }, [sites, supportFilter, allLines, currentNow]);
+
+  const filteredLines = React.useMemo(() => {
+    return lines.filter(l => {
+      if (supportFilter === 'all') return true;
+      const st = getLineStatus(l, currentNow);
+      if (supportFilter === 'active') {
+        return st.status === 'paid' || st.status === 'warranty';
+      }
+      if (supportFilter === 'expired') {
+        return st.status === 'expired';
+      }
+      return true;
+    });
+  }, [lines, supportFilter, currentNow]);
+
   if (isLoading) {
     return (
       <div className="h-full flex flex-col items-center justify-center space-y-4">
@@ -615,9 +672,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-full min-h-0">
       {/* Sidebar: Navigation Tree */}
       <div className={`
-        w-full lg:w-80 bg-white dark:bg-slate-800 p-3 lg:p-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-y-auto shrink-0 flex flex-col shadow-sm
-        ${selectedLine ? 'hidden lg:flex' : 'flex'}
-        max-h-[85vh] lg:max-h-none
+        w-full lg:w-80 bg-slate-50 dark:bg-slate-900 p-3 lg:p-4 rounded-3xl border border-slate-200/50 dark:border-slate-800 overflow-y-auto shrink-0 flex flex-col
+        ${(selectedLine || selectedSite) ? 'hidden lg:flex' : 'flex'}
+        max-h-[85vh] lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] custom-scrollbar
       `}>
         {/* Navigation Breadcrumbs / Back Button for Mobile */}
         <div className="lg:hidden mb-4">
@@ -641,11 +698,11 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         </div>
 
         <div className={`flex items-center justify-between mb-4 px-2 ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
-          <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Реестр Клиентов</h2>
-          {!isViewer && <button onClick={() => setModal({ type: 'client', data: null })} className="w-6 h-6 bg-[#FF5B00] text-white rounded-lg flex items-center justify-center hover:bg-[#e65200] shadow-md shadow-[#FF5B00]/10 transition-all text-lg font-bold">+</button>}
+          <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Реестр Клиентов</h2>
+          {!isViewer && <button onClick={() => setModal({ type: 'client', data: null })} className="w-8 h-8 bg-[#FF5B00] text-white rounded-2xl flex items-center justify-center hover:bg-[#e65200] shadow-md shadow-[#FF5B00]/20 transition-all text-xl font-medium">+</button>}
         </div>
 
-        <div className={`flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl mb-4 text-center ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full mb-6 mt-2 text-center shadow-inner ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
           {[
             { id: 'all', label: 'Все' },
             { id: 'active', label: 'Активная' },
@@ -654,7 +711,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             <button
               key={p.id}
               onClick={() => setSupportFilter(p.id as any)}
-              className={`flex-1 py-1 px-2 text-[10px] font-bold rounded-lg transition-all ${supportFilter === p.id ? 'bg-white dark:bg-slate-600 text-[#FF5B00] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-full transition-all ${supportFilter === p.id ? 'bg-white dark:bg-slate-600 text-[#FF5B00] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
             >
               {p.label}
             </button>
@@ -662,25 +719,12 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         </div>
 
         <div className="space-y-1 flex-1">
-          {clients.filter(c => {
-            if (supportFilter === 'all') return true;
-            const clientLines = allLines.filter(l => l.client_id === c.id);
-            if (supportFilter === 'active') {
-              return clientLines.some(l => {
-                const s = getLineStatus(l);
-                return s.status === 'paid' || s.status === 'warranty';
-              });
-            }
-            if (supportFilter === 'expired') {
-              return clientLines.some(l => getLineStatus(l).status === 'expired');
-            }
-            return true;
-          }).sort((a, b) => a.name.localeCompare(b.name, 'ru')).map(c => (
-            <div key={c.id} className={`group/item ${selectedClient && selectedClient.id !== c.id ? 'hidden lg:block' : 'block'}`}>
-              <div className={`flex items-center rounded-lg transition-all ${selectedClient?.id === c.id ? 'bg-orange-50/50 dark:bg-orange-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+          {filteredClients.map(c => (
+            <div key={c.id} className={`group/item mb-1 ${selectedClient && selectedClient.id !== c.id ? 'hidden lg:block' : 'block'}`}>
+              <div className={`flex items-center rounded-2xl transition-all ${selectedClient?.id === c.id ? 'bg-orange-100/50 dark:bg-orange-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                 <button
                   onClick={() => handleClientSelect(c)}
-                  className={`flex-1 text-left p-2.5 flex items-center justify-between ${selectedClient?.id === c.id ? 'text-[#FF5B00] font-bold' : 'text-slate-700 dark:text-slate-300'}`}
+                  className={`flex-1 text-left p-3 flex items-center justify-between ${selectedClient?.id === c.id ? 'text-[#FF5B00] font-bold' : 'text-slate-700 dark:text-slate-300'}`}
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     <span className="text-sm truncate">{c.name}</span>
@@ -697,26 +741,12 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
               {selectedClient?.id === c.id && (
                 <div id="client-sites-tree" className="ml-4 mt-1 space-y-0.5 border-l-2 pl-2 border-slate-100 dark:border-slate-700">
-                  {sites.filter(s => {
-                    if (supportFilter === 'all') return true;
-                    // Check if any line in this site matches the filter
-                    const siteLines = allLines.filter(l => l.site_id === s.id);
-                    if (supportFilter === 'active') {
-                      return siteLines.some(l => {
-                        const st = getLineStatus(l);
-                        return st.status === 'paid' || st.status === 'warranty';
-                      });
-                    }
-                    if (supportFilter === 'expired') {
-                      return siteLines.some(l => getLineStatus(l).status === 'expired');
-                    }
-                    return true;
-                  }).map(s => (
-                    <div key={s.id} className={`group/site ${selectedSite && selectedSite.id !== s.id ? 'hidden lg:block' : 'block'}`}>
-                      <div className={`flex items-center rounded ${selectedSite?.id === s.id ? 'bg-slate-100 dark:bg-slate-700' : ''}`}>
+                  {filteredSites.map(s => (
+                    <div key={s.id} className={`group/site mb-1 ${selectedSite && selectedSite.id !== s.id ? 'hidden lg:block' : 'block'}`}>
+                      <div className={`flex items-center rounded-xl transition-all ${selectedSite?.id === s.id ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                         <button
                           onClick={() => handleSiteSelect(s)}
-                          className={`flex-1 text-left p-2 text-xs flex items-center justify-between ${selectedSite?.id === s.id ? 'text-slate-900 dark:text-slate-100 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-[#FF5B00]'}`}
+                          className={`flex-1 text-left p-2.5 text-xs flex items-center justify-between ${selectedSite?.id === s.id ? 'text-slate-900 dark:text-slate-100 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-[#FF5B00]'}`}
                         >
                           <span className="truncate">{s.name}</span>
                           <IconChevronRight className={`w-2.5 h-2.5 ${selectedSite?.id === s.id ? 'rotate-90' : ''}`} />
@@ -731,26 +761,16 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
                       {selectedSite?.id === s.id && (
                         <div className="ml-3 mt-1 space-y-0.5 border-l pl-2 border-slate-200 dark:border-slate-600">
-                          {lines.filter(l => {
-                            if (supportFilter === 'all') return true;
-                            const st = getLineStatus(l);
-                            if (supportFilter === 'active') {
-                              return st.status === 'paid' || st.status === 'warranty';
-                            }
-                            if (supportFilter === 'expired') {
-                              return st.status === 'expired';
-                            }
-                            return true;
-                          }).map(l => (
-                            <div key={l.id} className="group/line flex items-center pr-1">
+                          {filteredLines.map(l => (
+                            <div key={l.id} className="group/line flex items-center pr-1 mb-0.5">
                               <button
                                 onClick={() => handleLineSelect(l)}
-                                className={`flex-1 text-left p-2.5 text-xs rounded-lg transition-colors flex items-center justify-between ${selectedLine?.id === l.id ? 'text-[#FF5B00] font-bold bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                className={`flex-1 text-left p-2.5 text-xs rounded-xl transition-colors flex items-center justify-between ${selectedLine?.id === l.id ? 'text-[#FF5B00] font-bold bg-white dark:bg-slate-600 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                               >
                                 <span className="truncate mr-2">{l.name}</span>
                                 <span
-                                  title={getLineStatus(l).tooltip}
-                                  className={`w-1.5 h-1.5 shrink-0 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(l).status) ? 'bg-emerald-400' : getLineStatus(l).status === 'expired' ? 'bg-red-400' : 'bg-slate-200 dark:bg-slate-600'}`}
+                                  title={getLineStatus(l, currentNow).tooltip}
+                                  className={`w-1.5 h-1.5 shrink-0 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(l, currentNow).status) ? 'bg-emerald-400' : getLineStatus(l, currentNow).status === 'expired' ? 'bg-red-400' : 'bg-slate-200 dark:bg-slate-600'}`}
                                 ></span>
                               </button>
                               {!isViewer && (
@@ -764,7 +784,6 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                           {isEngineer && !isViewer && (
                             <button onClick={() => setModal({ type: 'line', data: null })} className="w-full text-left p-1 text-[10px] text-[#FF5B00] font-bold hover:underline opacity-60">+ Линия</button>
                           )}
-
                         </div>
                       )}
                     </div>
@@ -772,7 +791,6 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                   {isEngineer && !isViewer && (
                     <button onClick={() => setModal({ type: 'site', data: null })} className="w-full text-left p-2 text-[10px] text-[#FF5B00] font-bold hover:underline opacity-60">+ Площадка</button>
                   )}
-
                 </div>
               )}
             </div>
@@ -782,8 +800,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
       {/* Main Content Area */}
       <div className={`
-        flex-1 bg-white dark:bg-slate-800 p-4 lg:p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-y-auto
-        ${!selectedLine ? 'hidden lg:block' : 'block'}
+        flex-1 bg-white dark:bg-slate-800 p-4 lg:p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-y-auto
+        ${!selectedLine && !selectedSite && !selectedClient ? 'hidden lg:block' : 'block'}
       `}>
         {selectedLine && (
           <div className="lg:hidden mb-6">
@@ -796,674 +814,698 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             </button>
           </div>
         )}
-        {!selectedLine ? (
-          !selectedClient ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-slate-600 space-y-4">
-              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+        {!selectedLine && selectedSite && (
+          <div className="lg:hidden mb-6">
+            <button
+              onClick={() => { setSelectedSite(null); setLines([]); }}
+              className="flex items-center gap-2 text-[#FF5B00] font-bold text-sm"
+            >
+              <IconChevronLeft className="w-4 h-4" />
+              Назад к площадкам
+            </button>
+          </div>
+        )}
+        {!selectedLine && !selectedSite && selectedClient && (
+          <div className="lg:hidden mb-6">
+            <button
+              onClick={() => { setSelectedClient(null); setSites([]); }}
+              className="flex items-center gap-2 text-[#FF5B00] font-bold text-sm"
+            >
+              <IconChevronLeft className="w-4 h-4" />
+              Назад к клиентам
+            </button>
+          </div>
+        )}
+        {
+          !selectedLine ? (
+            !selectedClient ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-slate-600 space-y-4">
+                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                </div>
+                <p className="text-sm font-bold uppercase tracking-widest opacity-50 text-center px-4">Выберите клиента в меню слева</p>
               </div>
-              <p className="text-sm font-bold uppercase tracking-widest opacity-50 text-center px-4">Выберите клиента в меню слева</p>
-            </div>
-          ) : selectedSite ? (
-            <div className="space-y-8 animate-in fade-in zoom-in duration-300">
-              <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">{selectedSite.name}</h1>
-                <p className="text-slate-400 dark:text-slate-500 font-medium">{selectedClient.name} • Площадка</p>
-              </div>
+            ) : selectedSite ? (
+              <div className="space-y-8 animate-in fade-in zoom-in duration-300">
+                <div>
+                  <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">{selectedSite.name}</h1>
+                  <p className="text-slate-400 dark:text-slate-500 font-medium">{selectedClient.name} • Площадка</p>
+                </div>
 
-              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 dark:bg-slate-800/50 rounded-bl-full -mr-16 -mt-16"></div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00] mb-4 relative z-10">Информация о площадке</h3>
-                <div className="space-y-4 relative z-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Адрес</div>
-                      {selectedSite.address ? (
-                        <a
-                          href={`https://yandex.ru/maps/?text=${encodeURIComponent(selectedSite.address)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-[#FF5B00] hover:text-[#e65200] hover:underline font-medium transition-colors inline-flex items-center gap-1.5"
-                          title="Открыть на Яндекс.Картах"
-                        >
-                          {selectedSite.address}
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 normal-case font-normal">→ карта</span>
-                        </a>
-                      ) : (
-                        <p className="text-sm text-slate-700 dark:text-slate-300">Не указано</p>
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">L3 Маркировка</div>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-100 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-[#FF5B00] rounded-full"></span>
-                        {selectedSite.l3_provider === 'Другое' ? selectedSite.l3_provider_custom : (selectedSite.l3_provider || 'Не указано')}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Комментарии</div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 italic mb-4">{selectedSite.notes || 'Нет комментариев'}</p>
-                  </div>
-
-                  <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FF5B00]">Контактные лица</h4>
-                      {!isViewer && (
-                        <button
-                          onClick={() => setModal({ type: 'site_contact', data: null })}
-                          className="text-[10px] font-bold text-[#FF5B00] hover:text-[#e65200] uppercase tracking-wider underline transition-colors"
-                        >
-                          + Добавить контакт
-                        </button>
-                      )}
-                    </div>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 dark:bg-slate-800/50 rounded-bl-full -mr-16 -mt-16"></div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00] mb-4 relative z-10">Информация о площадке</h3>
+                  <div className="space-y-4 relative z-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {selectedSite.contacts && selectedSite.contacts.length > 0 ? (
-                        selectedSite.contacts.map(contact => (
-                          <div key={contact.id} className="bg-slate-50/50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100/50 dark:border-slate-700/50 group hover:border-orange-100 dark:hover:border-orange-900/30 transition-all">
-                            <div className="flex justify-between items-start mb-2">
-                              <div className="flex-1 overflow-hidden mr-4">
-                                <div className="font-bold text-slate-900 dark:text-slate-100 truncate" title={contact.fio}>{contact.fio}</div>
-                                {contact.position && <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider truncate">{contact.position}</div>}
+                      <div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Адрес</div>
+                        {selectedSite.address ? (
+                          <a
+                            href={`https://yandex.ru/maps/?text=${encodeURIComponent(selectedSite.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-[#FF5B00] hover:text-[#e65200] hover:underline font-medium transition-colors inline-flex items-center gap-1.5"
+                            title="Открыть на Яндекс.Картах"
+                          >
+                            {selectedSite.address}
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 normal-case font-bold ml-1">→ на карте</span>
+                          </a>
+                        ) : (
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Не указано</p>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">L3 Маркировка</div>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-100 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-[#FF5B00] rounded-full"></span>
+                          {selectedSite.l3_provider === 'Другое' ? selectedSite.l3_provider_custom : (selectedSite.l3_provider || 'Не указано')}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Комментарии</div>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 italic mb-4">{selectedSite.notes || 'Нет комментариев'}</p>
+                    </div>
 
-                                <div className="space-y-1.5 mt-3">
-                                  {contact.phone && (
-                                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                                      <span className="opacity-50">📞</span>
-                                      <a href={`tel:${contact.phone}`} className="hover:text-[#FF5B00] hover:underline truncate">{contact.phone}</a>
-                                    </div>
-                                  )}
-                                  {contact.email && (
-                                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
-                                      <span className="opacity-50">✉️</span>
-                                      <a href={`mailto:${contact.email}`} className="hover:text-[#FF5B00] hover:underline truncate" title={contact.email}>{contact.email}</a>
-                                    </div>
-                                  )}
-                                  {contact.comments && (
-                                    <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-slate-500 italic text-[11px] leading-relaxed">
-                                      {contact.comments}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center shrink-0 ml-2">
-                                {!isViewer && (
-                                  <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => setModal({ type: 'site_contact', data: contact })} className="p-1.5 text-slate-400 hover:text-[#FF5B00] transition-colors">✎</button>
-                                    {isAdmin && (
-                                      <button
-                                        onClick={async () => {
-                                          if (confirm('Удалить контакт?')) {
-                                            await api.deleteSiteContact(contact.id);
-                                            setSites(await api.getSites(selectedClient!.id));
-                                          }
-                                        }}
-                                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
-                                      >
-                                        ✕
-                                      </button>
+                    <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FF5B00]">Контактные лица</h4>
+                        {!isViewer && (
+                          <button
+                            onClick={() => setModal({ type: 'site_contact', data: null })}
+                            className="text-[10px] font-bold text-[#FF5B00] hover:text-[#e65200] uppercase tracking-wider underline transition-colors"
+                          >
+                            + Добавить контакт
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedSite.contacts && selectedSite.contacts.length > 0 ? (
+                          selectedSite.contacts.map(contact => (
+                            <div key={contact.id} className="bg-slate-50/50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100/50 dark:border-slate-700/50 group hover:border-orange-100 dark:hover:border-orange-900/30 transition-all">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1 overflow-hidden mr-4">
+                                  <div className="font-bold text-slate-900 dark:text-slate-100 truncate" title={contact.fio}>{contact.fio}</div>
+                                  {contact.position && <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider truncate">{contact.position}</div>}
+
+                                  <div className="space-y-1.5 mt-3">
+                                    {contact.phone && (
+                                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                        <span className="opacity-50">📞</span>
+                                        <a href={`tel:${contact.phone}`} className="hover:text-[#FF5B00] hover:underline truncate">{contact.phone}</a>
+                                      </div>
+                                    )}
+                                    {contact.email && (
+                                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
+                                        <span className="opacity-50">✉️</span>
+                                        <a href={`mailto:${contact.email}`} className="hover:text-[#FF5B00] hover:underline truncate" title={contact.email}>{contact.email}</a>
+                                      </div>
+                                    )}
+                                    {contact.comments && (
+                                      <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-slate-500 italic text-[11px] leading-relaxed">
+                                        {contact.comments}
+                                      </div>
                                     )}
                                   </div>
-                                )}
+                                </div>
+                                <div className="flex items-center shrink-0 ml-2">
+                                  {!isViewer && (
+                                    <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                      <button onClick={() => setModal({ type: 'site_contact', data: contact })} className="p-1.5 text-slate-400 hover:text-[#FF5B00] transition-colors">✎</button>
+                                      {isAdmin && (
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm('Удалить контакт?')) {
+                                              await api.deleteSiteContact(contact.id);
+                                              setSites(await api.getSites(selectedClient!.id));
+                                            }
+                                          }}
+                                          className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-full py-6 text-center bg-white/50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                          <span className="text-slate-400 text-[10px] uppercase font-bold tracking-widest opacity-50">Список пуст</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 mt-6">
-                    {isEngineer && (
-                      <button onClick={() => setModal({ type: 'site', data: selectedSite })} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Редактировать объект</button>
-                    )}
-                    {isAdmin && (
-                      <button onClick={() => handleDeleteSite(selectedSite.id)} className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">Удалить объект</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Производственные линии ({lines.length})</h3>
-                {lines.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {lines.map(line => (
-                      <button
-                        key={line.id}
-                        onClick={() => handleLineSelect(line)}
-                        className="p-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00] hover:shadow-lg transition-all text-left group"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="w-12 h-12 bg-[#FF5B00]/10 dark:bg-[#FF5B00]/20 rounded-xl flex items-center justify-center group-hover:bg-[#FF5B00] transition-colors">
-                            <svg className="w-6 h-6 text-[#FF5B00] group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                            </svg>
-                          </div>
-                          <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Линия</div>
-                        </div>
-                        <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 group-hover:text-[#FF5B00] transition-colors flex items-center gap-2">
-                          {line.name}
-                          {line.cabinet_number && (
-                            <span className="text-[10px] font-black text-[#FF5B00] bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 px-2 py-0.5 rounded-lg">
-                              {line.cabinet_number}
-                            </span>
-                          )}
-                          <span
-                            title={getLineStatus(line).tooltip}
-                            className={`w-2 h-2 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(line).status) ? 'bg-emerald-400' : getLineStatus(line).status === 'expired' ? 'bg-red-400' : 'bg-slate-200 dark:bg-slate-700'}`}
-                          ></span>
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{line.description || 'Нет описания'}</p>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                    <p className="text-slate-400 text-sm">Нет производственных линий</p>
-                    {isEngineer && (
-                      <button onClick={() => setModal({ type: 'line', data: null })} className="mt-4 px-4 py-2 bg-[#FF5B00] text-white rounded-xl text-xs font-bold hover:bg-[#e65200]">+ Добавить линию</button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-8 animate-in fade-in zoom-in duration-300">
-              <div>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">{selectedClient.name}</h1>
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-slate-400 dark:text-slate-500 font-medium">Карточка клиента</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {isEngineer && (
-                      <button onClick={() => setModal({ type: 'client', data: selectedClient })} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Редактировать</button>
-                    )}
-                    {isAdmin && (
-                      <button onClick={async () => {
-                        if (confirm('Удалить клиента и все связанные данные?')) {
-                          await api.deleteClient(selectedClient.id);
-                          setSelectedClient(null);
-                          setClients(await api.getClients());
-                        }
-                      }} className="px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">Удалить</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Статистика</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => { setShowSitesTiles(!showSitesTiles); setShowLinesTiles(false); }}
-                      className={`p-4 rounded-2xl border text-center transition-all cursor-pointer ${showSitesTiles ? 'bg-orange-50 border-[#FF5B00] dark:bg-orange-950/20 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00]/60'}`}
-                    >
-                      <div className={`text-2xl font-black ${showSitesTiles ? 'text-[#FF5B00]' : 'text-slate-800 dark:text-slate-200'}`}>{sites.length}</div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">Площадок</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setShowLinesTiles(!showLinesTiles); setShowSitesTiles(false); }}
-                      className={`p-4 rounded-2xl border text-center transition-all cursor-pointer ${showLinesTiles ? 'bg-orange-50 border-[#FF5B00] dark:bg-orange-950/20 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00]/60'}`}
-                    >
-                      <div className={`text-2xl font-black ${showLinesTiles ? 'text-[#FF5B00]' : 'text-slate-800 dark:text-slate-200'}`}>
-                        {sites.reduce((acc, site) => acc + (site.line_count || 0), 0)}
-                      </div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">Линий</div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sites Tiles (Smooth Reveal) */}
-              <div className={`expand-grid mt-6 ${showSitesTiles ? 'is-open' : ''}`}>
-                <div className="expand-inner">
-                  <div className="space-y-4 pb-6 px-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Выберите площадку</h3>
-                      <button onClick={() => setShowSitesTiles(false)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Скрыть</button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {sites.map(s => (
-                        <button
-                          key={s.id}
-                          onClick={() => { handleSiteSelect(s); setShowSitesTiles(false); }}
-                          className="group p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-[#FF5B00] hover:shadow-xl transition-all text-left relative overflow-hidden"
-                        >
-                          <div className="absolute top-0 right-0 w-2 h-full bg-[#FF5B00] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                          <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{s.name}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest font-black line-clamp-1">{s.address || 'Адрес не указан'}</div>
-                          <div className="flex items-center gap-3 mt-3">
-                            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 py-0.5 bg-slate-50 dark:bg-slate-800 rounded">
-                              {s.line_count || 0} линий
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lines Tiles (Smooth Reveal) */}
-              <div className={`expand-grid mt-6 ${showLinesTiles ? 'is-open' : ''}`}>
-                <div className="expand-inner">
-                  <div className="space-y-6 pb-6 px-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Производственные линии в разрезе площадок</h3>
-                      <button onClick={() => setShowLinesTiles(false)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Скрыть</button>
-                    </div>
-                    <div className="space-y-8">
-                      {sites.map(s => (
-                        <div key={s.id} className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{s.name}</h4>
-                            <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {(allLines.filter(l => l.site_id === s.id)).map(l => (
-                              <button
-                                key={l.id}
-                                onClick={() => { handleLineSelect(l); setShowLinesTiles(false); }}
-                                className="group p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl border border-transparent hover:border-emerald-400/50 hover:bg-white dark:hover:bg-slate-800 transition-all text-left flex items-center justify-between"
-                              >
-                                <div>
-                                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-emerald-500 transition-colors">{l.name}</div>
-                                  <div className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">{l.cabinet_number || 'Шкаф не указ.'}</div>
-                                </div>
-                                <div className={`w-1.5 h-1.5 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(l).status) ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-300'}`}></div>
-                              </button>
-                            ))}
-                            {(!allLines.some(l => l.site_id === s.id)) && (
-                              <div className="col-span-full py-4 text-center text-slate-300 italic text-[10px] uppercase tracking-widest">Нет линий на этой площадке</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )
-        ) : (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="border-b dark:border-slate-800 pb-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 title={selectedLine.tooltip_message || ''} className="text-3xl font-black text-slate-900 dark:text-slate-100 mb-1 cursor-help underline decoration-dotted decoration-slate-200 dark:decoration-slate-700 underline-offset-4 hover:decoration-[#FF5B00] transition-all">
-                    {selectedLine.name}
-                  </h1>
-                  <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">{selectedClient?.name} / {selectedSite?.name}</p>
-                </div>
-
-                {selectedLine.cabinet_number && (
-                  <div className="hidden md:flex flex-1 justify-center px-4">
-                    <div className="px-4 py-2 bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 rounded-2xl flex flex-col items-center">
-                      <span className="text-[10px] font-black text-orange-400 dark:text-orange-500 uppercase tracking-widest leading-none mb-1">Шкаф управления</span>
-                      <span className="text-xl font-black text-[#FF5B00] leading-none">{selectedLine.cabinet_number}</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <span
-                    title={getLineStatus(selectedLine).tooltip}
-                    className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-transparent shadow-sm flex items-center gap-2 cursor-help ${getLineStatus(selectedLine).color}`}
-                  >
-                    {getLineStatus(selectedLine).label}
-                    {getLineStatus(selectedLine).remaining && <span className="opacity-75 font-normal border-l pl-2 ml-1 border-current">
-                      {getLineStatus(selectedLine).remaining}
-                    </span>}
-                  </span>
-                  {isEngineer && !isViewer && (
-                    <button
-                      onClick={() => handleDuplicateLine(selectedLine)}
-                      className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:border-[#FF5B00] dark:hover:border-[#FF5B00] hover:text-[#FF5B00] transition-colors"
-                      title="Создать копию линии со всем оборудованием (S/N сбросятся)"
-                    >
-                      Дублировать
-                    </button>
-                  )}
-                  <button onClick={() => setModal({ type: 'line', data: selectedLine })} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Настроить линию</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 group relative">
-                  <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Монтажные Особенности</h4>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">{selectedLine.mounting_features || 'Не заполнено'}</p>
-                </div>
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 group relative">
-                  <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Специфика Эксплуатации</h4>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">{selectedLine.operational_specifics || 'Не заполнено'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Middle Section: DB & Remote Access */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Database Connection Card */}
-              <div className="md:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/10 rounded-bl-full -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition-transform"></div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
-                  <span className="w-1.5 h-4 bg-[#FF5B00] rounded-full"></span>
-                  Подключение к Базе Данных (Линия)
-                </h3>
-                {selectedLine.db_ip ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 relative z-10">
-                    <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">IP Адрес Сервера</div>
-                      <div className="font-mono text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700">{selectedLine.db_ip}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Имя Базы</div>
-                      <div className="font-bold text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700">{selectedLine.db_name}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Логин</div>
-                      <div className="text-sm text-slate-700 dark:text-slate-300">{selectedLine.db_user}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Пароль</div>
-                      <div className="text-sm text-slate-700 dark:text-slate-300 font-mono">••••••••</div>
-                    </div>
-                    {selectedLine.db_notes && (
-                      <div className="sm:col-span-2">
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Комментарий</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 italic">{selectedLine.db_notes}</div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-xs text-slate-300 italic mb-3">Параметры БД не настроены</p>
-                    <button onClick={() => setModal({ type: 'line', data: selectedLine })} className="text-[10px] font-bold text-[#FF5B00] hover:underline">Настроить сейчас →</button>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl flex flex-col">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[#FF5B00]">Удаленное подключение</h3>
-                  {!isViewer && (
-                    <button
-                      onClick={() => setModal({ type: 'remote', data: null })}
-                      className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest underline transition-colors"
-                    >
-                      + Добавить
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                  {remote.length > 0 ? remote.map((r) => (
-                    <div key={r.id} className="group/remote border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 group/id">
-                            <div className="text-lg font-black text-white truncate" title={r.url_or_address}>{r.url_or_address}</div>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(r.url_or_address);
-                                setToastMessage('ID скопирован');
-                                setTimeout(() => setToastMessage(null), 2000);
-                              }}
-                              className="p-1 text-white/20 hover:text-white transition-colors opacity-0 group-hover/id:opacity-100"
-                              title="Копировать ID"
-                            >
-                              <IconCopy className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-block px-2 py-0.5 rounded bg-white/10 text-[9px] font-bold uppercase tracking-wider">{r.type}</span>
-                            {r.notes && <span className="text-[10px] text-white/40 italic truncate max-w-[150px]">{r.notes}</span>}
-                          </div>
-                          {r.credentials && (
-                            <div className="text-[10px] text-white/30 font-mono mt-2 bg-black/20 p-2 rounded-lg break-all">
-                              {r.credentials}
-                            </div>
-                          )}
-                        </div>
-                        {!isViewer && (
-                          <div className="flex gap-1 ml-2 lg:opacity-0 lg:group-hover/remote:opacity-100 transition-opacity shrink-0">
-                            <button onClick={() => setModal({ type: 'remote', data: r })} className="p-1.5 text-white/40 hover:text-[#FF5B00] transition-colors">✎</button>
-                            <button onClick={() => handleDeleteRemote(r.id)} className="p-1.5 text-white/40 hover:text-red-500 transition-colors">✕</button>
+                          ))
+                        ) : (
+                          <div className="col-span-full py-6 text-center bg-white/50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <span className="text-slate-400 text-[10px] uppercase font-bold tracking-widest opacity-50">Список пуст</span>
                           </div>
                         )}
                       </div>
                     </div>
-                  )) : (
-                    <div className="text-white/20 text-xs italic py-4">Параметры доступа не настроены</div>
+
+                    <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 mt-6">
+                      {isEngineer && (
+                        <button onClick={() => setModal({ type: 'site', data: selectedSite })} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Редактировать объект</button>
+                      )}
+                      {isAdmin && (
+                        <button onClick={() => handleDeleteSite(selectedSite.id)} className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">Удалить объект</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Производственные линии ({lines.length})</h3>
+                  {lines.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {lines.map(line => (
+                        <button
+                          key={line.id}
+                          onClick={() => handleLineSelect(line)}
+                          className="p-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00] hover:shadow-lg transition-all text-left group"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="w-12 h-12 bg-[#FF5B00]/10 dark:bg-[#FF5B00]/20 rounded-xl flex items-center justify-center group-hover:bg-[#FF5B00] transition-colors">
+                              <svg className="w-6 h-6 text-[#FF5B00] group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                              </svg>
+                            </div>
+                            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Линия</div>
+                          </div>
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 group-hover:text-[#FF5B00] transition-colors flex items-center gap-2">
+                            {line.name}
+                            {line.cabinet_number && (
+                              <span className="text-[10px] font-black text-[#FF5B00] bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 px-2 py-0.5 rounded-lg">
+                                {line.cabinet_number}
+                              </span>
+                            )}
+                            <span
+                              title={getLineStatus(line, currentNow).tooltip}
+                              className={`w-2 h-2 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(line, currentNow).status) ? 'bg-emerald-400' : getLineStatus(line, currentNow).status === 'expired' ? 'bg-red-400' : 'bg-slate-200 dark:bg-slate-700'}`}
+                            ></span>
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{line.description || 'Нет описания'}</p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                      <p className="text-slate-400 text-sm">Нет производственных линий</p>
+                      {isEngineer && (
+                        <button onClick={() => setModal({ type: 'line', data: null })} className="mt-4 px-4 py-2 bg-[#FF5B00] text-white rounded-xl text-xs font-bold hover:bg-[#e65200]">+ Добавить линию</button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Equipment Table */}
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                  <span className="w-1.5 h-5 bg-[#FF5B00] rounded-full"></span>
-                  Спецификация Оборудования
-                </h3>
-                <div className="flex gap-2">
-                  <button onClick={() => setModal({ type: 'import_line', data: null })} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
-                    <span>📥</span> Импорт
-                  </button>
-                  {!isViewer && <button onClick={() => setModal({ type: 'equipment', data: null })} className="bg-[#FF5B00] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#e65200] shadow-lg shadow-[#FF5B00]/10 transition-all">+ Добавить</button>}
+            ) : (
+              <div className="space-y-8 animate-in fade-in zoom-in duration-300">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">{selectedClient.name}</h1>
+                      <div className="flex items-center gap-3 mt-1">
+                        <p className="text-slate-400 dark:text-slate-500 font-medium">Карточка клиента</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {isEngineer && (
+                        <button onClick={() => setModal({ type: 'client', data: selectedClient })} className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Редактировать</button>
+                      )}
+                      {isAdmin && (
+                        <button onClick={async () => {
+                          if (confirm('Удалить клиента и все связанные данные?')) {
+                            await api.deleteClient(selectedClient.id);
+                            setSelectedClient(null);
+                            setClients(await api.getClients());
+                          }
+                        }} className="px-5 py-2.5 bg-red-50 dark:bg-red-900/20 rounded-full text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">Удалить</button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-                <table className="w-full text-left min-w-[800px]">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase border-b dark:border-slate-800 tracking-widest">
-                    <tr>
-                      <th className="px-2 py-4 w-8"></th>
-                      <th className="px-6 py-4">Модель / Артикул</th>
-                      <th className="px-6 py-4">Сеть (IP)</th>
-                      <th className="px-6 py-4 text-center">Статус</th>
-                      <th className="px-6 py-4">Примечания</th>
-                      <th className="px-6 py-4 text-right">Действия</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {equipment.length > 0 ? equipment.map(e => (
-                      <tr
-                        key={e.id}
-                        className={`text-sm group hover:bg-orange-50/20 transition-all cursor-move ${draggedEquipId === e.id ? 'opacity-50' : ''
-                          }`}
-                        draggable
-                        onDragStart={(ev) => handleDragStart(ev, e.id)}
-                        onDragOver={handleDragOver}
-                        onDrop={(ev) => handleDrop(ev, e.id)}
-                        onDragEnd={handleDragEnd}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                  <div className="bg-slate-50 dark:bg-slate-800/40 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Статистика</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => { setShowSitesTiles(!showSitesTiles); setShowLinesTiles(false); }}
+                        className={`p-5 rounded-3xl border text-center transition-all cursor-pointer ${showSitesTiles ? 'bg-orange-50 border-[#FF5B00] dark:bg-orange-950/20 shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00]/60'}`}
                       >
-                        <td className="px-2 py-4 text-slate-400">
-                          <div className="text-lg leading-none cursor-grab active:cursor-grabbing">⋮⋮</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900 dark:text-slate-100">{e.model}</div>
-                          <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{e.article || 'Артикул отсутствует'}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {e.ip_address ? (
-                            <div className="flex flex-col">
-                              <span className="font-mono text-slate-700 dark:text-slate-300 text-xs">{e.ip_address}</span>
-                              <span className="text-[9px] text-slate-400 dark:text-slate-500">Mask: {e.subnet_mask || '—'}</span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-300 dark:text-slate-600 text-xs italic">не настроено</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <select
-                            value={e.status}
-                            onChange={(ev) => changeEquipStatus(e.id, ev.target.value as EquipmentStatus)}
-                            className={`text-[10px] font-bold uppercase py-1 px-2 rounded-lg focus:outline-none cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all ${e.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                              e.status === 'maintenance' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                              }`}
-                          >
-                            <option value="active">Активен</option>
-                            <option value="maintenance">Сервис</option>
-                            <option value="faulty">Брак</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs italic max-w-[200px] truncate">{e.notes}</td>
-                        <td className="px-6 py-4 text-right space-x-2">
-                          {!isViewer && <button onClick={() => setModal({ type: 'equipment', data: e })} className="p-2 text-slate-300 dark:text-slate-600 hover:text-[#FF5B00] dark:hover:text-[#FF5B00] transition-colors">✎</button>}
-                          {isEngineer && <button onClick={() => handleDeleteEquip(e.id)} className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 transition-colors">✕</button>}
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-300 dark:text-slate-600 italic text-sm">Оборудование не добавлено</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Support Tools Grid (Documentation) */}
-            <div
-              className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative"
-              onDragOver={onInstructionDragOver}
-              onDragEnter={onInstructionDragOver}
-              onDragLeave={onInstructionDragLeave}
-              onDrop={onInstructionDrop}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Документация и Ресурсы</h3>
-                {!isViewer && <button onClick={() => setModal({ type: 'instruction', data: null })} className="text-[10px] font-bold text-[#FF5B00] hover:text-[#e65200] uppercase tracking-wider underline transition-colors">+ Добавить документ</button>}
-              </div>
-
-              {dragActiveDocs && (
-                <div className="absolute inset-0 bg-[#FF5B00]/10 flex items-center justify-center rounded-2xl z-40 pointer-events-none">
-                  <div className="bg-white/90 dark:bg-slate-800/90 px-6 py-4 rounded-lg text-[#FF5B00] font-bold">Отпустите файлы, чтобы загрузить</div>
-                </div>
-              )}
-
-              {isUploadingDocs && (
-                <div className="absolute top-4 right-4 z-50 bg-white/90 dark:bg-slate-800/90 px-3 py-2 rounded-lg text-sm font-semibold text-[#FF5B00]">Загрузка...</div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {instructions.length > 0 ? (
-                  <>
-                    {instructions.map(i => (
-                      <div key={i.id} className="group flex items-center p-4 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/40 border border-slate-50 dark:border-slate-800 hover:bg-orange-50 dark:hover:bg-orange-900/10 hover:border-orange-100 dark:hover:border-orange-900/20 transition-all">
-                        <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-lg mr-4 shadow-sm text-[#FF5B00]">📄</div>
-                        <div className="flex-1 overflow-hidden">
-                          <a
-                            href={(() => {
-                              if (!i.link) return '#';
-                              // Convert UNC paths (\\server\share\file) to file:// URI
-                              if (/^\\\\/.test(i.link)) {
-                                // Replace backslashes with forward slashes and prepend file://
-                                return 'file:' + i.link.replace(/\\\\/g, '/').replace(/\\/g, '/');
-                              }
-                              return i.link;
-                            })()}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-black text-slate-800 dark:text-slate-100 hover:underline block truncate"
-                            title={i.link}
-                          >
-                            {i.module_type || 'Файл'}
-                          </a>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500">Версия {i.version || '1.0'} • {i.notes || 'Без описания'}</p>
-                          {copiedLinkId === i.id && (
-                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">Ссылка скопирована</div>
-                          )}
+                        <div className={`text-3xl font-black ${showSitesTiles ? 'text-[#FF5B00]' : 'text-slate-800 dark:text-slate-200'}`}>{sites.length}</div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mt-1">Площадок</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowLinesTiles(!showLinesTiles); setShowSitesTiles(false); }}
+                        className={`p-5 rounded-3xl border text-center transition-all cursor-pointer ${showLinesTiles ? 'bg-orange-50 border-[#FF5B00] dark:bg-orange-950/20 shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00]/60'}`}
+                      >
+                        <div className={`text-3xl font-black ${showLinesTiles ? 'text-[#FF5B00]' : 'text-slate-800 dark:text-slate-200'}`}>
+                          {sites.reduce((acc, site) => acc + (site.line_count || 0), 0)}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {!isViewer && <button onClick={() => setModal({ type: 'instruction', data: i })} className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-[#FF5B00] transition-all">✎</button>}
+                        <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mt-1">Линий</div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
+                {/* Sites Tiles (Smooth Reveal) */}
+                <div className={`expand-grid mt-6 ${showSitesTiles ? 'is-open' : ''}`}>
+                  <div className="expand-inner">
+                    <div className="space-y-4 pb-6 px-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Выберите площадку</h3>
+                        <button onClick={() => setShowSitesTiles(false)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Скрыть</button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {sites.map(s => (
                           <button
-                            onClick={() => openInExplorer(i.link)}
-                            title="Открыть в Проводнике"
-                            className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 transition-all"
+                            key={s.id}
+                            onClick={() => { handleSiteSelect(s); setShowSitesTiles(false); }}
+                            className="group p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-[#FF5B00] hover:shadow-xl transition-all text-left relative overflow-hidden"
                           >
-                            📂
+                            <div className="absolute top-0 right-0 w-2 h-full bg-[#FF5B00] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{s.name}</div>
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest font-black line-clamp-1">{s.address || 'Адрес не указан'}</div>
+                            <div className="flex items-center gap-3 mt-3">
+                              <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 py-0.5 bg-slate-50 dark:bg-slate-800 rounded">
+                                {s.line_count || 0} линий
+                              </div>
+                            </div>
                           </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                          <button
-                            onClick={async () => {
-                              // Copy original link to clipboard
-                              try {
-                                let text = i.link || '';
-                                // Strip surrounding quotes if present (common issue with some CSV imports)
-                                text = text.replace(/^["']|["']$/g, '');
+                {/* Lines Tiles (Smooth Reveal) */}
+                <div className={`expand-grid mt-6 ${showLinesTiles ? 'is-open' : ''}`}>
+                  <div className="expand-inner">
+                    <div className="space-y-6 pb-6 px-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Производственные линии в разрезе площадок</h3>
+                        <button onClick={() => setShowLinesTiles(false)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Скрыть</button>
+                      </div>
+                      <div className="space-y-8">
+                        {sites.map(s => (
+                          <div key={s.id} className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
+                              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{s.name}</h4>
+                              <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {(allLines.filter(l => l.site_id === s.id)).map(l => (
+                                <button
+                                  key={l.id}
+                                  onClick={() => { handleLineSelect(l); setShowLinesTiles(false); }}
+                                  className="group p-5 bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-transparent hover:border-emerald-400/50 hover:bg-white dark:hover:bg-slate-800 transition-all text-left flex items-center justify-between shadow-sm"
+                                >
+                                  <div>
+                                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-emerald-500 transition-colors">{l.name}</div>
+                                    <div className="text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">{l.cabinet_number || 'Шкаф не указ.'}</div>
+                                  </div>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(l, currentNow).status) ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-300'}`}></div>
+                                </button>
+                              ))}
+                              {(!allLines.some(l => l.site_id === s.id)) && (
+                                <div className="col-span-full py-4 text-center text-slate-300 italic text-[10px] uppercase tracking-widest">Нет линий на этой площадке</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                                if (navigator.clipboard && navigator.clipboard.writeText) {
-                                  await navigator.clipboard.writeText(text);
-                                } else {
-                                  const dummy = document.createElement('textarea');
-                                  document.body.appendChild(dummy);
-                                  dummy.value = text;
-                                  dummy.select();
-                                  document.execCommand('copy');
-                                  document.body.removeChild(dummy);
-                                }
-                                // Context-aware hint
-                                const hint = (() => {
-                                  if (!text) return 'Ссылка скопирована в буфер обмена';
-                                  if (/^\\\\/.test(text) || text.startsWith('file:')) return 'Ссылка скопирована. Если браузер блокирует открытие file://, откройте путь в Проводнике (вставьте путь в адресную строку Проводника)';
-                                  if (/^https?:\/\//.test(text)) return 'Ссылка скопирована в буфер обмена — вставьте в адресную строку или откройте в новой вкладке';
-                                  return 'Ссылка скопирована в буфер обмена';
-                                })();
-                                setCopiedLinkId(i.id);
-                                setToastMessage(hint);
-                                setTimeout(() => { setCopiedLinkId(null); setToastMessage(null); }, 3000);
-                              } catch (err) {
-                                console.error('Copy failed:', err);
-                                alert('Не удалось скопировать ссылку');
-                              }
-                            }}
-                            title="Копировать ссылку"
-                            className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 transition-all"
-                          >
-                            📋
-                          </button>
+              </div>
+            )
+          ) : (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="border-b dark:border-slate-800 pb-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h1 title={selectedLine.tooltip_message || ''} className="text-3xl font-black text-slate-900 dark:text-slate-100 mb-1 cursor-help underline decoration-dotted decoration-slate-200 dark:decoration-slate-700 underline-offset-4 hover:decoration-[#FF5B00] transition-all">
+                      {selectedLine.name}
+                    </h1>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">{selectedClient?.name} / {selectedSite?.name}</p>
+                  </div>
 
-                          {isAdmin && (
-                            <button
-                              onClick={async () => {
-                                if (!selectedLine) return;
-                                if (!window.confirm('Удалить документ?')) return;
-                                try {
-                                  await api.deleteInstruction(i.id);
-                                  setInstructions(await api.getInstructions(selectedLine.id));
-                                } catch (err) {
-                                  console.error('Failed to delete instruction:', err);
-                                  alert('Не удалось удалить документ');
-                                }
-                              }}
-                              className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all"
-                            >
-                              🗑
-                            </button>
+                  {selectedLine.cabinet_number && (
+                    <div className="hidden md:flex flex-1 justify-center px-4">
+                      <div className="px-4 py-2 bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 rounded-2xl flex flex-col items-center">
+                        <span className="text-[10px] font-black text-orange-400 dark:text-orange-500 uppercase tracking-widest leading-none mb-1">Шкаф управления</span>
+                        <span className="text-xl font-black text-[#FF5B00] leading-none">{selectedLine.cabinet_number}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      title={getLineStatus(selectedLine, currentNow).tooltip}
+                      className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-transparent shadow-sm flex items-center gap-2 cursor-help ${getLineStatus(selectedLine, currentNow).color}`}
+                    >
+                      {getLineStatus(selectedLine, currentNow).label}
+                      {getLineStatus(selectedLine, currentNow).remaining && <span className="opacity-75 font-normal border-l pl-2 ml-1 border-current">
+                        {getLineStatus(selectedLine, currentNow).remaining}
+                      </span>}
+                    </span>
+                    {isEngineer && !isViewer && (
+                      <button
+                        onClick={() => handleDuplicateLine(selectedLine)}
+                        className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold hover:border-[#FF5B00] dark:hover:border-[#FF5B00] hover:text-[#FF5B00] transition-colors shadow-sm"
+                        title="Создать копию линии со всем оборудованием (S/N сбросятся)"
+                      >
+                        Дублировать
+                      </button>
+                    )}
+                    <button onClick={() => setModal({ type: 'line', data: selectedLine })} className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Настроить линию</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800 group relative shadow-sm">
+                    <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Монтажные Особенности</h4>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">{selectedLine.mounting_features || 'Не заполнено'}</p>
+                  </div>
+                  <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800 group relative shadow-sm">
+                    <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Специфика Эксплуатации</h4>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic">{selectedLine.operational_specifics || 'Не заполнено'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle Section: DB & Remote Access */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Database Connection Card */}
+                <div className="md:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/10 rounded-bl-full -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition-transform"></div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
+                    <span className="w-1.5 h-4 bg-[#FF5B00] rounded-full"></span>
+                    Подключение к Базе Данных (Линия)
+                  </h3>
+                  {selectedLine.db_ip ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 relative z-10">
+                      <div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">IP Адрес Сервера</div>
+                        <div className="font-mono text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700">{selectedLine.db_ip}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Имя Базы</div>
+                        <div className="font-bold text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700">{selectedLine.db_name}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Логин</div>
+                        <div className="text-sm text-slate-700 dark:text-slate-300">{selectedLine.db_user}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Пароль</div>
+                        <div className="text-sm text-slate-700 dark:text-slate-300 font-mono">••••••••</div>
+                      </div>
+                      {selectedLine.db_notes && (
+                        <div className="sm:col-span-2">
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Комментарий</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 italic">{selectedLine.db_notes}</div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-xs text-slate-300 italic mb-3">Параметры БД не настроены</p>
+                      <button onClick={() => setModal({ type: 'line', data: selectedLine })} className="text-[10px] font-bold text-[#FF5B00] hover:underline">Настроить сейчас →</button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-[#FF5B00]">Удаленное подключение</h3>
+                    {!isViewer && (
+                      <button
+                        onClick={() => setModal({ type: 'remote', data: null })}
+                        className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest underline transition-colors"
+                      >
+                        + Добавить
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                    {remote.length > 0 ? remote.map((r) => (
+                      <div key={r.id} className="group/remote border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 group/id">
+                              <div className="text-lg font-black text-white truncate" title={r.url_or_address}>{r.url_or_address}</div>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(r.url_or_address);
+                                  setToastMessage('ID скопирован');
+                                  setTimeout(() => setToastMessage(null), 2000);
+                                }}
+                                className="p-1 text-white/20 hover:text-white transition-colors opacity-0 group-hover/id:opacity-100"
+                                title="Копировать ID"
+                              >
+                                <IconCopy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="inline-block px-2 py-0.5 rounded bg-white/10 text-[9px] font-bold uppercase tracking-wider">{r.type}</span>
+                              {r.notes && <span className="text-[10px] text-white/40 italic truncate max-w-[150px]">{r.notes}</span>}
+                            </div>
+                            {r.credentials && (
+                              <div className="text-[10px] text-white/30 font-mono mt-2 bg-black/20 p-2 rounded-lg break-all">
+                                {r.credentials}
+                              </div>
+                            )}
+                          </div>
+                          {!isViewer && (
+                            <div className="flex gap-1 ml-2 lg:opacity-0 lg:group-hover/remote:opacity-100 transition-opacity shrink-0">
+                              <button onClick={() => setModal({ type: 'remote', data: r })} className="p-1.5 text-white/40 hover:text-[#FF5B00] transition-colors">✎</button>
+                              <button onClick={() => handleDeleteRemote(r.id)} className="p-1.5 text-white/40 hover:text-red-500 transition-colors">✕</button>
+                            </div>
                           )}
                         </div>
                       </div>
-                    ))}
-                  </>
-                ) : <div className="col-span-full text-center py-6 text-slate-300 italic text-xs">Нет прикрепленных документов</div>}
+                    )) : (
+                      <div className="text-white/20 text-xs italic py-4">Параметры доступа не настроены</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Equipment Table */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <span className="w-1.5 h-5 bg-[#FF5B00] rounded-full"></span>
+                    Спецификация Оборудования
+                  </h3>
+                  <div className="flex gap-2">
+                    <button onClick={() => setModal({ type: 'import_line', data: null })} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-2">
+                      <span>📥</span> Импорт
+                    </button>
+                    {!isViewer && <button onClick={() => setModal({ type: 'equipment', data: null })} className="bg-[#FF5B00] text-white px-5 py-2.5 rounded-full text-xs font-bold hover:bg-[#e65200] shadow-md shadow-[#FF5B00]/20 transition-all">+ Добавить</button>}
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm overflow-x-auto">
+                  <table className="w-full text-left min-w-[800px]">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase border-b dark:border-slate-800 tracking-widest">
+                      <tr>
+                        <th className="px-2 py-4 w-8"></th>
+                        <th className="px-6 py-4">Модель / Артикул</th>
+                        <th className="px-6 py-4">Сеть (IP)</th>
+                        <th className="px-6 py-4 text-center">Статус</th>
+                        <th className="px-6 py-4">Примечания</th>
+                        <th className="px-6 py-4 text-right">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {equipment.length > 0 ? equipment.map(e => (
+                        <tr
+                          key={e.id}
+                          className={`text-sm group hover:bg-orange-50/20 transition-all cursor-move ${draggedEquipId === e.id ? 'opacity-50' : ''
+                            }`}
+                          draggable
+                          onDragStart={(ev) => handleDragStart(ev, e.id)}
+                          onDragOver={handleDragOver}
+                          onDrop={(ev) => handleDrop(ev, e.id)}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <td className="px-2 py-4 text-slate-400">
+                            <div className="text-lg leading-none cursor-grab active:cursor-grabbing">⋮⋮</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-900 dark:text-slate-100">{e.model}</div>
+                            <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{e.article || 'Артикул отсутствует'}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {e.ip_address ? (
+                              <div className="flex flex-col">
+                                <span className="font-mono text-slate-700 dark:text-slate-300 text-xs">{e.ip_address}</span>
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500">Mask: {e.subnet_mask || '—'}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 dark:text-slate-600 text-xs italic">не настроено</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <select
+                              value={e.status}
+                              onChange={(ev) => changeEquipStatus(e.id, ev.target.value as EquipmentStatus)}
+                              className={`text-[10px] font-bold uppercase py-1.5 px-3 rounded-full focus:outline-none cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all ${e.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                                e.status === 'maintenance' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                }`}
+                            >
+                              <option value="active">Активен</option>
+                              <option value="maintenance">Сервис</option>
+                              <option value="faulty">Брак</option>
+                            </select>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs italic max-w-[200px] truncate">{e.notes}</td>
+                          <td className="px-6 py-4 text-right space-x-2">
+                            {!isViewer && <button onClick={() => setModal({ type: 'equipment', data: e })} className="p-2 text-slate-300 dark:text-slate-600 hover:text-[#FF5B00] dark:hover:text-[#FF5B00] transition-colors">✎</button>}
+                            {isEngineer && <button onClick={() => handleDeleteEquip(e.id)} className="p-2 text-slate-200 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 transition-colors">✕</button>}
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-300 dark:text-slate-600 italic text-sm">Оборудование не добавлено</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Support Tools Grid (Documentation) */}
+              <div
+                className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative"
+                onDragOver={onInstructionDragOver}
+                onDragEnter={onInstructionDragOver}
+                onDragLeave={onInstructionDragLeave}
+                onDrop={onInstructionDrop}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Документация и Ресурсы</h3>
+                  {!isViewer && <button onClick={() => setModal({ type: 'instruction', data: null })} className="text-[10px] font-bold text-[#FF5B00] hover:text-[#e65200] uppercase tracking-wider underline transition-colors">+ Добавить документ</button>}
+                </div>
+
+                {dragActiveDocs && (
+                  <div className="absolute inset-0 bg-[#FF5B00]/10 flex items-center justify-center rounded-2xl z-40 pointer-events-none">
+                    <div className="bg-white/90 dark:bg-slate-800/90 px-6 py-4 rounded-lg text-[#FF5B00] font-bold">Отпустите файлы, чтобы загрузить</div>
+                  </div>
+                )}
+
+                {isUploadingDocs && (
+                  <div className="absolute top-4 right-4 z-50 bg-white/90 dark:bg-slate-800/90 px-3 py-2 rounded-lg text-sm font-semibold text-[#FF5B00]">Загрузка...</div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {instructions.length > 0 ? (
+                    <>
+                      {instructions.map(i => (
+                        <div key={i.id} className="group flex items-center p-4 rounded-3xl bg-[#F8FAFC] dark:bg-slate-800/40 border border-slate-50 dark:border-slate-800 hover:bg-orange-50 dark:hover:bg-orange-900/10 hover:border-orange-100 dark:hover:border-orange-900/20 transition-all shadow-sm">
+                          <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-xl mr-4 shadow-sm text-[#FF5B00]">📄</div>
+                          <div className="flex-1 overflow-hidden">
+                            <a
+                              href={(() => {
+                                if (!i.link) return '#';
+                                // Convert UNC paths (\\server\share\file) to file:// URI
+                                if (/^\\\\/.test(i.link)) {
+                                  // Replace backslashes with forward slashes and prepend file://
+                                  return 'file:' + i.link.replace(/\\\\/g, '/').replace(/\\/g, '/');
+                                }
+                                return i.link;
+                              })()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-black text-slate-800 dark:text-slate-100 hover:underline block truncate"
+                              title={i.link}
+                            >
+                              {i.module_type || 'Файл'}
+                            </a>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500">Версия {i.version || '1.0'} • {i.notes || 'Без описания'}</p>
+                            {copiedLinkId === i.id && (
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">Ссылка скопирована</div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {!isViewer && <button onClick={() => setModal({ type: 'instruction', data: i })} className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-[#FF5B00] transition-all">✎</button>}
+
+                            <button
+                              onClick={() => openInExplorer(i.link)}
+                              title="Открыть в Проводнике"
+                              className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 transition-all"
+                            >
+                              📂
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                // Copy original link to clipboard
+                                try {
+                                  let text = i.link || '';
+                                  // Strip surrounding quotes if present (common issue with some CSV imports)
+                                  text = text.replace(/^["']|["']$/g, '');
+
+                                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    await navigator.clipboard.writeText(text);
+                                  } else {
+                                    const dummy = document.createElement('textarea');
+                                    document.body.appendChild(dummy);
+                                    dummy.value = text;
+                                    dummy.select();
+                                    document.execCommand('copy');
+                                    document.body.removeChild(dummy);
+                                  }
+                                  // Context-aware hint
+                                  const hint = (() => {
+                                    if (!text) return 'Ссылка скопирована в буфер обмена';
+                                    if (/^\\\\/.test(text) || text.startsWith('file:')) return 'Ссылка скопирована. Если браузер блокирует открытие file://, откройте путь в Проводнике (вставьте путь в адресную строку Проводника)';
+                                    if (/^https?:\/\//.test(text)) return 'Ссылка скопирована в буфер обмена — вставьте в адресную строку или откройте в новой вкладке';
+                                    return 'Ссылка скопирована в буфер обмена';
+                                  })();
+                                  setCopiedLinkId(i.id);
+                                  setToastMessage(hint);
+                                  setTimeout(() => { setCopiedLinkId(null); setToastMessage(null); }, 3000);
+                                } catch (err) {
+                                  console.error('Copy failed:', err);
+                                  alert('Не удалось скопировать ссылку');
+                                }
+                              }}
+                              title="Копировать ссылку"
+                              className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 transition-all"
+                            >
+                              📋
+                            </button>
+
+                            {isAdmin && (
+                              <button
+                                onClick={async () => {
+                                  if (!selectedLine) return;
+                                  if (!window.confirm('Удалить документ?')) return;
+                                  try {
+                                    await api.deleteInstruction(i.id);
+                                    setInstructions(await api.getInstructions(selectedLine.id));
+                                  } catch (err) {
+                                    console.error('Failed to delete instruction:', err);
+                                    alert('Не удалось удалить документ');
+                                  }
+                                }}
+                                className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all"
+                              >
+                                🗑
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : <div className="col-span-full text-center py-6 text-slate-300 italic text-xs">Нет прикрепленных документов</div>}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )
+        }
+      </div >
 
       {/* MODALS */}
       {/* MODALS */}
@@ -1875,7 +1917,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
           </div>
         )
       }
-    </div >
+    </div>
   );
 };
 
