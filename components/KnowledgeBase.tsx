@@ -242,17 +242,17 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     return (
         <div className="flex h-[calc(100vh-140px)] gap-6 antialiased">
             {/* Left Sidebar - List */}
-            <div className={`${selectedArticle || isEditing ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden`}>
+            <div className={`${selectedArticle || isEditing ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden glass-surface`}>
                 <div className="p-5 border-b border-slate-100 space-y-4">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <Book className="w-5 h-5 text-[primary]" />
+                            <Book className="w-5 h-5 text-primary" />
                             База Знаний
                         </h2>
                         {isEngineer && (
                             <button
                                 onClick={handleCreateNew}
-                                className="p-1.5 bg-[primary]/10 text-[primary] rounded-lg hover:bg-[primary] hover:text-white transition-all"
+                                className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all"
                                 title="Создать статью"
                             >
                                 <Plus className="w-5 h-5" />
@@ -265,9 +265,9 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                             placeholder="Поиск статей..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[primary]/20 focus:border-[primary] transition-all"
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         />
-                        <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 dark:text-slate-500 group-focus-within:text-[primary] transition-colors" />
+                        <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors" />
                     </form>
 
                     {/* Active Filters */}
@@ -282,7 +282,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                 </div>
                             )}
                             {selectedTagFilter && (
-                                <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/30 text-[primary] px-2 py-1 rounded-md text-[11px] font-bold">
+                                <div className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/30 text-primary px-2 py-1 rounded-md text-[11px] font-bold">
                                     <span>Тег: {selectedTagFilter}</span>
                                     <button onClick={clearTagFilter} className="hover:bg-orange-200 dark:hover:bg-orange-800 rounded-sm p-0.5 transition-colors">
                                         <X className="w-3 h-3" />
@@ -324,7 +324,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                     : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-transparent'
                                     }`}
                             >
-                                <h3 className={`font-semibold text-sm mb-1 truncate ${selectedArticle?.id === article.id ? 'text-[primary]' : 'text-slate-700 dark:text-slate-200'}`}>
+                                <h3 className={`font-semibold text-sm mb-1 truncate ${selectedArticle?.id === article.id ? 'text-primary' : 'text-slate-700 dark:text-slate-200'}`}>
                                     {article.title}
                                 </h3>
                                 <div className="flex items-center gap-3 text-[11px] text-slate-400">
@@ -349,7 +349,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
             </div>
 
             {/* Main Content Area */}
-            <div className={`flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden ${!selectedArticle && !isEditing ? 'hidden lg:flex' : 'flex'}`}>
+            <div className={`flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden glass-surface ${!selectedArticle && !isEditing ? 'hidden lg:flex' : 'flex'}`}>
                 {!selectedArticle && !isEditing ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-12 text-center">
                         <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-6">
@@ -373,7 +373,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setIsPreview(!isPreview)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isPreview ? 'bg-orange-50 dark:bg-orange-900/20 text-[primary]' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isPreview ? 'bg-orange-50 dark:bg-orange-900/20 text-primary' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
                                         }`}
                                 >
                                     {isPreview ? <Code className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -381,7 +381,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="px-6 py-2 bg-[primary] text-white rounded-lg font-bold hover:bg-[#e05000] shadow-lg shadow-[primary]/20 transition-all text-sm"
+                                    className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#e05000] shadow-lg shadow-primary/20 transition-all text-sm"
                                 >
                                     Сохранить
                                 </button>
@@ -477,7 +477,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => handleEdit(selectedArticle)}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-500 dark:text-slate-400 hover:text-[primary] hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-all text-sm font-semibold"
+                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-all text-sm font-semibold"
                                     >
                                         <Edit className="w-4 h-4" />
                                         <span>Редактировать</span>
@@ -524,7 +524,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                                         <span
                                                             key={i}
                                                             onClick={(e) => handleTagClick(e, tag)}
-                                                            className="text-[primary] font-bold hover:underline cursor-pointer"
+                                                            className="text-primary font-bold hover:underline cursor-pointer"
                                                         >
                                                             #{tag}
                                                         </span>
@@ -533,7 +533,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                             </div>
                                         </div>
 
-                                        <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-black prose-h1:text-5xl prose-h2:text-3xl prose-h3:text-2xl prose-h4:text-xl prose-a:text-[primary] text-slate-700 dark:text-slate-300 leading-relaxed text-lg pb-12 prose-img:rounded-2xl prose-img:shadow-xl">
+                                        <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-black prose-h1:text-5xl prose-h2:text-3xl prose-h3:text-2xl prose-h4:text-xl prose-a:text-primary text-slate-700 dark:text-slate-300 leading-relaxed text-lg pb-12 prose-img:rounded-2xl prose-img:shadow-xl">
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 components={{
@@ -565,7 +565,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                         <div className="border-t border-slate-100 dark:border-slate-700 pt-10">
                                             <div className="flex justify-between items-center mb-6">
                                                 <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                                    <Paperclip className="w-5 h-5 text-[primary]" />
+                                                    <Paperclip className="w-5 h-5 text-primary" />
                                                     Вложенные файлы ({attachments.length})
                                                 </h3>
                                                 {isEngineer && (
@@ -597,8 +597,8 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                             ) : (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {attachments.map(file => (
-                                                        <div key={file.id} className="group p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-4 hover:border-[primary]/50 hover:shadow-xl hover:shadow-slate-100 dark:hover:shadow-black/20 transition-all">
-                                                            <div className="w-12 h-12 bg-slate-50 dark:bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-orange-50 dark:group-hover:bg-orange-900/20 group-hover:text-[primary] transition-colors">
+                                                        <div key={file.id} className="group p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-4 hover:border-primary/50 hover:shadow-xl hover:shadow-slate-100 dark:hover:shadow-black/20 transition-all">
+                                                            <div className="w-12 h-12 bg-slate-50 dark:bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-orange-50 dark:group-hover:bg-orange-900/20 group-hover:text-primary transition-colors">
                                                                 <FileText className="w-6 h-6" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">

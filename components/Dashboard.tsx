@@ -167,7 +167,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       .filter((r: any) => r.total_tickets > 0);
 
     const pieTotal = pieRows.reduce((sum: number, r: any) => sum + r.total_tickets, 0);
-    const pieColors = ['primary', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#64748B'];
+    const pieColors = ['#FF5B00', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6', '#64748B'];
 
     const getCoordinatesForPercent = (percent: number) => {
       const x = Math.cos(2 * Math.PI * percent);
@@ -258,35 +258,33 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     onToggle: () => void;
     extra?: React.ReactNode;
   }) => (
-    <div className="p-8 pb-4 border-b border-surface-100 dark:border-surface-700/50 flex flex-wrap items-center justify-between gap-4">
+    <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h2 className="text-2xl font-display font-black text-slate-950 dark:text-white tracking-tight">{title}</h2>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{subtitle}</p>
+        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">{title}</h2>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>
       </div>
       <div className="flex items-center gap-3">
         {extra}
         {badge}
         <button
           onClick={onToggle}
-          className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface-100 dark:hover:bg-surface-700 text-slate-400 transition-all border border-transparent hover:border-surface-200 dark:hover:border-surface-600 shadow-sm"
+          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 transition-all"
           title={isOpen ? 'Свернуть' : 'Развернуть'}
         >
-          <ChevronDown className={`w-5 h-5 transition-transform duration-500 ${isOpen ? '' : '-rotate-90'}`} />
+          <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
         </button>
       </div>
     </div>
   );
 
-
   return (
-    <div className="space-y-10 animate-slideUp">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-display font-black text-slate-950 dark:text-white uppercase tracking-tight">Обзор системы</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">Мониторинг обращений и состояния объектов в реальном времени</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 italic uppercase tracking-tight">Обзор системы</h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Мониторинг обращений и состояния объектов в реальном времени</p>
         </div>
       </div>
-
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -295,57 +293,56 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'clients' }, '', '/clients');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-surface-900 p-8 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 text-left hover:border-primary/40 transition-all hover:-translate-y-1.5 group active:scale-95 relative overflow-hidden"
+          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-[#FF5B00]/40 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
-          <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner shadow-primary/5">
-            <Workflow className="w-7 h-7 text-primary" strokeWidth={2.5} />
+          <div className="w-12 h-12 bg-[#FF5B00]/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <Workflow className="w-6 h-6 text-[#FF5B00]" strokeWidth={2.5} />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Всего клиентов</p>
-          <p className="text-5xl font-display font-black text-slate-950 dark:text-white">{clients.length}</p>
-          <p className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Всего клиентов</p>
+          <p className="text-4xl font-black text-slate-900 dark:text-slate-100">{clients.length}</p>
+          <p className="text-xs font-bold text-slate-400 mt-2">
             <span className="text-indigo-500">{lines.length}</span> производственных линий
           </p>
-          {/* Decorative subtle gradient */}
-          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
         </button>
-
 
         <button
           onClick={() => {
             window.history.pushState({ tab: 'tickets' }, '', '/tickets');
             if (onNavigate) onNavigate('tickets');
           }}
-          className="bg-white dark:bg-surface-900 p-8 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 text-left hover:border-amber-400 transition-all hover:-translate-y-1.5 group active:scale-95 relative overflow-hidden"
+          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-amber-300 dark:hover:border-amber-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
-          <div className="w-14 h-14 bg-amber-50 dark:bg-amber-900/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <svg className="w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Обращения за неделю</p>
+          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Обращения за неделю</p>
           <div className="flex items-baseline gap-3">
-            <span className="text-5xl font-display font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
+            <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
             {trend.ticketTrendDelta !== 0 && (
-              <span className={`flex items-center gap-0.5 text-xs font-black px-1.5 py-0.5 rounded-lg ${trend.ticketTrendDelta > 0 ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
+              <span className={`flex items-center gap-0.5 text-xs font-black ${trend.ticketTrendDelta > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                 {trend.ticketTrendDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                 {Math.abs(trend.ticketTrendDelta)}
               </span>
             )}
+            {trend.ticketTrendDelta === 0 && (
+              <span className="flex items-center gap-0.5 text-xs font-black text-slate-400">
+                <Minus className="w-3.5 h-3.5" /> 0
+              </span>
+            )}
           </div>
-          <p className="text-xs font-bold text-slate-400 mt-4">
+          <p className="text-xs font-bold text-slate-400 mt-2">
             <span className="text-slate-500">{trend.ticketsLastWeek}</span> за прошлую неделю
           </p>
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
         </button>
-
 
         <button
           onClick={() => {
             window.history.pushState({ tab: 'clients' }, '', '/clients?support=active');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-indigo-300 dark:hover:border-indigo-600 transition-all hover:-translate-y-1 group active:scale-95"
+          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-indigo-300 dark:hover:border-indigo-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
           <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -370,30 +367,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'clients' }, '', '/clients?support=expired');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-surface-900 p-8 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 text-left hover:border-red-400 transition-all hover:-translate-y-1.5 group active:scale-95 relative overflow-hidden"
+          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-red-300 dark:hover:border-red-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
-          <div className="w-14 h-14 bg-red-50 dark:bg-red-900/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Поддержка истекла</p>
+          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Поддержка истекла</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-display font-black text-red-500">{stats.clientsExpiredCount}</span>
+            <span className="text-4xl font-black text-red-500">{stats.clientsExpiredCount}</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Клиентов</span>
           </div>
-          <p className="text-xs font-bold text-slate-400 mt-4 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+          <p className="text-xs font-bold text-slate-400 mt-2">
             <span className="text-red-400">{stats.linesExpiredCount}</span> без поддержки
           </p>
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
         </button>
       </div>
 
       {/* Upcoming Support Expirations Widget */}
       {expiringLines.length > 0 && (
-        <div className="bg-white dark:bg-surface-900 rounded-[2.5rem] shadow-xl shadow-surface-200/40 dark:shadow-none border border-surface-100 dark:border-surface-800 overflow-hidden">
-
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
           <SectionHeader
             title="Ближайшие истечения"
             subtitle="Поддержка истекает в ближайшие 60 дней"
@@ -428,7 +422,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       )}
                     </div>
                     <div>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[primary] transition-colors">{getClientName(line.client_id)}</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{getClientName(line.client_id)}</span>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-slate-400 font-medium">{line.name}</span>
                         <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{line.supportType}</span>
@@ -445,7 +439,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       </span>
                       <div className="text-[10px] text-slate-400 font-bold">до {line.endDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[primary] transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-[#FF5B00] transition-colors" />
                   </div>
                 </div>
               ))}
@@ -454,7 +448,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50">
                 <button
                   onClick={() => setShowAllExpirations(!showAllExpirations)}
-                  className="text-sm font-bold text-[primary] hover:text-primary/90 transition-colors flex items-center gap-1"
+                  className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
                 >
                   {showAllExpirations ? 'Свернуть' : `Все клиенты (${expiringLines.length})`}
                 </button>
@@ -465,7 +459,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       )}
 
       {/* Active Tickets */}
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
         <SectionHeader
           title="Заявки в работе"
           subtitle="Очередь активных инцидентов"
@@ -498,7 +492,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   >
                     <td className="px-8 py-5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[primary] transition-colors">{t.client_name || '—'}</span>
+                        <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{t.client_name || '—'}</span>
                         <span className="text-[10px] text-slate-400 font-medium">#{t.id}</span>
                       </div>
                     </td>
@@ -537,7 +531,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   window.history.pushState({ tab: 'tickets' }, '', '/tickets?status=in_progress');
                   if (onNavigate) onNavigate('tickets');
                 }}
-                className="text-sm font-bold text-[primary] hover:text-primary/90 transition-colors flex items-center gap-1"
+                className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
               >
                 Все заявки <ChevronRight className="w-4 h-4" />
               </button>
@@ -547,7 +541,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
 
       {/* Analytics */}
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
         <SectionHeader
           title="Аналитика"
           subtitle="Распределение по категориям проблем"
@@ -566,7 +560,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   key={p.id}
                   onClick={() => setAvgPeriod(p.id)}
                   className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${avgPeriod === p.id
-                    ? 'bg-white dark:bg-slate-700 text-[primary] shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
+                    ? 'bg-white dark:bg-slate-700 text-[#FF5B00] shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
                 >
@@ -651,7 +645,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span className={`inline-block w-3 h-3 rounded-full transition-transform ${isActive ? 'scale-[1.3]' : ''}`} style={{ backgroundColor: color }} />
-                          <span className={`truncate font-bold ${isActive ? 'text-[primary] dark:text-[primary]' : 'text-slate-700 dark:text-slate-300'}`}>{r.category_name}</span>
+                          <span className={`truncate font-bold ${isActive ? 'text-[#FF5B00] dark:text-[#FF5B00]' : 'text-slate-700 dark:text-slate-300'}`}>{r.category_name}</span>
                         </div>
                         <div className="shrink-0 font-black text-slate-400 dark:text-slate-500">{r.total_tickets} <span className="text-[10px] ml-1">{pct}%</span></div>
                       </div>
@@ -697,7 +691,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                             <td className="px-4 py-5 text-center">
                               <button
                                 onClick={() => handleDrillDown(row.category_id)}
-                                className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs hover:bg-[primary] hover:text-white transition-all mx-auto block"
+                                className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs hover:bg-[#FF5B00] hover:text-white transition-all mx-auto block"
                               >
                                 {row.total_tickets}
                               </button>
@@ -728,7 +722,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                               return (
                                 <td className="px-4 py-5 text-right hidden lg:table-cell">
                                   <div className="flex flex-col items-end">
-                                    <span className="font-black text-[primary]">
+                                    <span className="font-black text-[#FF5B00]">
                                       {formatHoursMinutes(row[`avg_${avgPeriod}`])}
                                     </span>
                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">В среднем</span>
@@ -751,7 +745,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {/* Channels & Frequency */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Channel Distribution */}
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
           <SectionHeader
             title="Каналы связи"
             subtitle="Распределение по способам обращения"
@@ -768,11 +762,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     <div key={item.contact_channel} className="space-y-1">
                       <div className="flex justify-between items-end">
                         <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{channelLabels[item.contact_channel] || item.contact_channel}</span>
-                        <span className="text-xs font-black text-[primary]">{item.count} ({percent}%)</span>
+                        <span className="text-xs font-black text-[#FF5B00]">{item.count} ({percent}%)</span>
                       </div>
                       <div className="h-2 w-full bg-slate-50 dark:bg-slate-900 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[primary] rounded-full transition-all duration-1000"
+                          className="h-full bg-[#FF5B00] rounded-full transition-all duration-1000"
                           style={{ width: `${percent}%`, opacity: 1 - (idx * 0.15) }}
                         />
                       </div>
@@ -787,7 +781,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </div>
 
         {/* Client Frequency */}
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
           <SectionHeader
             title="Интенсивность запросов"
             subtitle="Среднее кол-во обращений в месяц после внедрения"
@@ -804,7 +798,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       <span className="text-[10px] text-slate-400 font-medium">С {new Date(item.warranty_start_date).toLocaleDateString('ru-RU')}</span>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-black text-[primary]">{item.tickets_per_month}</div>
+                      <div className="text-lg font-black text-[#FF5B00]">{item.tickets_per_month}</div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">заявок/мес</div>
                     </div>
                   </div>

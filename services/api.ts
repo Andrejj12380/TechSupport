@@ -404,6 +404,22 @@ class ApiService {
     });
   }
 
+  // AI Support Features
+  async summarizeTicket(ticketId: number): Promise<{ summary: string; action_items: string[] }> {
+    // Simulated AI Processing Delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // In a production environment, this would hit an LLM API
+    return {
+      summary: "Краткий обзор: Клиент столкнулся с системной ошибкой контроллера. Была проведена диагностика питания и кабельной трассы. Проблема решена заменой предохранителя.",
+      action_items: [
+        "Проверить стабильность питающего напряжения в шкафу",
+        "Провести профилактику контактов разъема X1",
+        "Обновить запись в журнале обслуживания"
+      ]
+    };
+  }
+
   async deleteEquipment(id: number) {
     return this.request(`/equipment/${id}`, {
       method: 'DELETE',
