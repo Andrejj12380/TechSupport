@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { Client, ProductionLine, SupportTicket } from '../types';
 
 interface DashboardProps {
-  onNavigate?: (tab: 'dashboard' | 'clients' | 'logs' | 'search' | 'kb' | 'users' | 'tickets') => void;
+  onNavigate?: (tab: 'dashboard' | 'clients' | 'logs' | 'search' | 'kb' | 'users' | 'tickets' | 'post-implementation-analytics') => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
@@ -258,9 +258,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     onToggle: () => void;
     extra?: React.ReactNode;
   }) => (
-    <div className="p-8 pb-4 border-b border-slate-50 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-4">
+    <div className="p-4 sm:p-8 pb-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">{title}</h2>
+        <h2 className="text-2xl font-black text-white">{title}</h2>
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>
       </div>
       <div className="flex items-center gap-3">
@@ -268,7 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         {badge}
         <button
           onClick={onToggle}
-          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-400 transition-all"
+          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 text-slate-400 transition-all"
           title={isOpen ? 'Свернуть' : 'Развернуть'}
         >
           <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
@@ -281,8 +281,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 italic uppercase tracking-tight">Обзор системы</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Мониторинг обращений и состояния объектов в реальном времени</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white italic uppercase tracking-tight">Обзор системы</h1>
+          <p className="text-white/50 font-medium">Мониторинг обращений и состояния объектов в реальном времени</p>
         </div>
       </div>
 
@@ -293,13 +293,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'clients' }, '', '/clients');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-[#FF5B00]/40 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
+          className="glass-card p-4 sm:p-8 rounded-[2rem] shadow-2xl shadow-black/20 border border-white/10 text-left hover:border-[#FF5B00]/40 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
           <div className="w-12 h-12 bg-[#FF5B00]/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <Workflow className="w-6 h-6 text-[#FF5B00]" strokeWidth={2.5} />
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Всего клиентов</p>
-          <p className="text-4xl font-black text-slate-900 dark:text-slate-100">{clients.length}</p>
+          <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">Всего клиентов</p>
+          <p className="text-3xl sm:text-4xl font-black text-white">{clients.length}</p>
           <p className="text-xs font-bold text-slate-400 mt-2">
             <span className="text-indigo-500">{lines.length}</span> производственных линий
           </p>
@@ -310,16 +310,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'tickets' }, '', '/tickets');
             if (onNavigate) onNavigate('tickets');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-amber-300 dark:hover:border-amber-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
+          className="glass-card p-4 sm:p-8 rounded-[2rem] shadow-2xl shadow-black/20 border border-white/10 text-left hover:border-amber-300 dark:hover:border-amber-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
-          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Обращения за неделю</p>
+          <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">Обращения за неделю</p>
           <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
+            <span className="text-3xl sm:text-4xl font-black text-amber-600 dark:text-amber-400">{trend.ticketsThisWeek}</span>
             {trend.ticketTrendDelta !== 0 && (
               <span className={`flex items-center gap-0.5 text-xs font-black ${trend.ticketTrendDelta > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                 {trend.ticketTrendDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
@@ -342,16 +342,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'clients' }, '', '/clients?support=active');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-indigo-300 dark:hover:border-indigo-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
+          className="glass-card p-4 sm:p-8 rounded-[2rem] shadow-2xl shadow-black/20 border border-white/10 text-left hover:border-indigo-300 dark:hover:border-indigo-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
-          <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.040A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">На техподдержке</p>
+          <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">На техподдержке</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-indigo-600 dark:text-indigo-400">{stats.clientsOnSupportCount}</span>
+            <span className="text-3xl sm:text-4xl font-black text-indigo-600 dark:text-indigo-400">{stats.clientsOnSupportCount}</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Клиентов</span>
           </div>
           <p className="text-xs font-bold text-slate-400 mt-2">
@@ -367,16 +367,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             window.history.pushState({ tab: 'clients' }, '', '/clients?support=expired');
             if (onNavigate) onNavigate('clients');
           }}
-          className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 text-left hover:border-red-300 dark:hover:border-red-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
+          className="glass-card p-4 sm:p-8 rounded-[2rem] shadow-2xl shadow-black/20 border border-white/10 text-left hover:border-red-300 dark:hover:border-red-600 transition-all hover:-translate-y-1 group active:scale-95 glass-card glass-card-hover"
         >
-          <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Поддержка истекла</p>
+          <p className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">Поддержка истекла</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-red-500">{stats.clientsExpiredCount}</span>
+            <span className="text-3xl sm:text-4xl font-black text-red-500">{stats.clientsExpiredCount}</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Клиентов</span>
           </div>
           <p className="text-xs font-bold text-slate-400 mt-2">
@@ -387,12 +387,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
       {/* Upcoming Support Expirations Widget */}
       {expiringLines.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
+        <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
           <SectionHeader
             title="Ближайшие истечения"
             subtitle="Поддержка истекает в ближайшие 60 дней"
             badge={
-              <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
+              <span className="px-3 py-1 bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-500/20">
                 {expiringLines.length} линий
               </span>
             }
@@ -408,11 +408,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     window.history.pushState({ tab: 'clients' }, '', `/clients?client=${line.client_id}`);
                     if (onNavigate) onNavigate('clients');
                   }}
-                  className="flex items-center justify-between px-8 py-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all cursor-pointer group"
+                  className="flex items-center justify-between px-4 sm:px-8 py-5 hover:bg-white/10/50 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${line.daysLeft <= 7 ? 'bg-red-50 dark:bg-red-900/20' :
-                      line.daysLeft <= 30 ? 'bg-amber-50 dark:bg-amber-900/20' :
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${line.daysLeft <= 7 ? 'bg-red-500/10' :
+                      line.daysLeft <= 30 ? 'bg-amber-500/10' :
                         'bg-blue-50 dark:bg-blue-900/20'
                       }`}>
                       {line.daysLeft <= 7 ? (
@@ -422,10 +422,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                       )}
                     </div>
                     <div>
-                      <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{getClientName(line.client_id)}</span>
+                      <span className="font-bold text-white group-hover:text-[#FF5B00] transition-colors">{getClientName(line.client_id)}</span>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-slate-400 font-medium">{line.name}</span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{line.supportType}</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase bg-white/10 text-white/50">{line.supportType}</span>
                       </div>
                     </div>
                   </div>
@@ -445,7 +445,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               ))}
             </div>
             {expiringLines.length > 3 && (
-              <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50">
+              <div className="px-4 sm:px-8 py-4 border-t border-white/5">
                 <button
                   onClick={() => setShowAllExpirations(!showAllExpirations)}
                   className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
@@ -459,12 +459,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       )}
 
       {/* Active Tickets */}
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
+      <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
         <SectionHeader
           title="Заявки в работе"
           subtitle="Очередь активных инцидентов"
           badge={
-            <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-100 dark:border-amber-800">
+            <span className="px-3 py-1 bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-500/20">
               {openTickets.length} активных
             </span>
           }
@@ -476,11 +476,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
-                  <th className="px-8 py-4">Клиент</th>
-                  <th className="px-8 py-4">Проблема</th>
-                  <th className="px-8 py-4">Статус</th>
-                  <th className="px-8 py-4 hidden sm:table-cell">Инженер</th>
-                  <th className="px-8 py-4 hidden sm:table-cell">Обновлено</th>
+                  <th className="px-4 sm:px-8 py-4">Клиент</th>
+                  <th className="px-4 sm:px-8 py-4">Проблема</th>
+                  <th className="px-4 sm:px-8 py-4">Статус</th>
+                  <th className="px-4 sm:px-8 py-4 hidden sm:table-cell">Инженер</th>
+                  <th className="px-4 sm:px-8 py-4 hidden sm:table-cell">Обновлено</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
@@ -488,43 +488,43 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   <tr
                     key={t.id}
                     onClick={() => handleDrillDown(undefined, undefined, t.id)}
-                    className="group text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                    className="group text-sm hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <td className="px-8 py-5">
+                    <td className="px-4 sm:px-8 py-5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#FF5B00] transition-colors">{t.client_name || '—'}</span>
+                        <span className="font-bold text-white group-hover:text-[#FF5B00] transition-colors">{t.client_name || '—'}</span>
                         <span className="text-[10px] text-slate-400 font-medium">#{t.id}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <p className="max-w-xs truncate text-slate-600 dark:text-slate-300 font-medium">{t.problem_description}</p>
+                    <td className="px-4 sm:px-8 py-5">
+                      <p className="max-w-xs truncate text-slate-600 text-white/70 font-medium">{t.problem_description}</p>
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-4 sm:px-8 py-5">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${t.status === 'on_hold'
-                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                        ? 'bg-white/10 text-white/60'
                         : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800'
                         }`}>
                         {t.status === 'on_hold' ? 'В ожидании' : 'В работе'}
                       </span>
                     </td>
-                    <td className="px-8 py-5 hidden sm:table-cell">
-                      <span className="text-slate-600 dark:text-slate-300 font-bold">{t.engineer_name || '—'}</span>
+                    <td className="px-4 sm:px-8 py-5 hidden sm:table-cell">
+                      <span className="text-slate-600 text-white/70 font-bold">{t.engineer_name || '—'}</span>
                     </td>
-                    <td className="px-8 py-5 text-slate-400 dark:text-slate-500 font-bold hidden sm:table-cell">
+                    <td className="px-4 sm:px-8 py-5 text-white/40 font-bold hidden sm:table-cell">
                       {t.reported_at ? new Date(t.reported_at).toLocaleDateString('ru-RU') : '—'}
                     </td>
                   </tr>
                 ))}
                 {openTickets.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-8 py-16 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет активных заявок</td>
+                    <td colSpan={5} className="px-4 sm:px-8 py-16 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет активных заявок</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
           {openTickets.length > 5 && (
-            <div className="px-8 py-4 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
+            <div className="px-4 sm:px-8 py-4 border-t border-white/5 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-400">Показано 5 из {openTickets.length}</span>
               <button
                 onClick={() => {
@@ -541,14 +541,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
 
       {/* Analytics */}
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
+      <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
         <SectionHeader
           title="Аналитика"
           subtitle="Распределение по категориям проблем"
           isOpen={showAnalytics}
           onToggle={() => setShowAnalytics(v => !v)}
           extra={
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  window.history.pushState({ tab: 'post-implementation-analytics' }, '', '/post-implementation-analytics');
+                  if (onNavigate) onNavigate('post-implementation-analytics');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-[#FF5B00]/10 text-[#FF5B00] text-[10px] font-black uppercase rounded-2xl border border-[#FF5B00]/20 hover:bg-[#FF5B00] hover:text-white transition-all shadow-lg shadow-orange-500/10"
+              >
+                <TrendingDown className="w-3.5 h-3.5" />
+                Подробно по внедрениям
+              </button>
+              <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10">
               {[
                 { id: '7d', label: 'Неделя' },
                 { id: '30d', label: 'Месяц' },
@@ -560,18 +571,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   key={p.id}
                   onClick={() => setAvgPeriod(p.id)}
                   className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${avgPeriod === p.id
-                    ? 'bg-white dark:bg-slate-700 text-[#FF5B00] shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    ? 'bg-white bg-white/10 text-[#FF5B00] shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
+                    : 'text-white/50 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
                 >
                   {p.label}
                 </button>
               ))}
+              </div>
             </div>
           }
         />
         <div className={`overflow-hidden transition-all duration-300 ${showAnalytics ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
               <div className="lg:col-span-1">
                 <div className="flex items-center justify-center p-4">
@@ -597,27 +609,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                         ))}
                       </svg>
                     ) : (
-                      <div className="w-full h-full rounded-full border-4 border-dashed border-slate-100 dark:border-slate-700 flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="w-full h-full rounded-full border-4 border-dashed border-white/10 flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
                         <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Нет данных</span>
                       </div>
                     )}
 
                     {/* Center Content */}
-                    <div className="absolute inset-[25%] rounded-full bg-white dark:bg-slate-800 flex items-center justify-center text-center shadow-xl border border-slate-50 dark:border-slate-700 z-10">
+                    <div className="absolute inset-[22%] rounded-full bg-[var(--bg-main)]/90 backdrop-blur-xl flex items-center justify-center text-center shadow-2xl border border-white/10 z-10 pointer-events-none">
                       <div className="animate-in fade-in duration-300">
                         {hoveredData ? (
                           <div className="px-2">
                             <div className="text-2xl font-black" style={{ color: hoveredColor }}>
                               {Math.round((hoveredData.total_tickets / pieTotal) * 100)}%
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight line-clamp-2 mt-0.5">
+                            <div className="text-[9px] font-bold text-white/50 uppercase tracking-tight line-clamp-2 mt-0.5">
                               {hoveredData.category_name}
                             </div>
                           </div>
                         ) : (
                           <div>
-                            <div className="text-4xl font-black text-slate-900 dark:text-slate-100">{pieTotal}</div>
-                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Обращений</div>
+                            <div className="text-4xl font-black text-white">{pieTotal}</div>
+                            <div className="text-[9px] text-white/40 font-black uppercase tracking-widest">Обращений</div>
                           </div>
                         )}
                       </div>
@@ -637,17 +649,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     return (
                       <div
                         key={r.category_id}
-                        className={`flex items-center justify-between gap-3 text-xs transition-all duration-200 cursor-pointer p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/50 ${isDimmed ? 'opacity-30 blur-[0.5px]' : 'opacity-100'
-                          } ${isSelected ? 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600' : 'border border-transparent'}`}
+                        className={`flex items-center justify-between gap-3 text-xs transition-all duration-200 cursor-pointer p-3 rounded-2xl hover:bg-white/10/50 ${isDimmed ? 'opacity-30 blur-[0.5px]' : 'opacity-100'
+                          } ${isSelected ? 'bg-white/10 border border-slate-200 dark:border-slate-600' : 'border border-transparent'}`}
                         onMouseEnter={() => setHoveredCategory(r.category_id)}
                         onMouseLeave={() => setHoveredCategory(null)}
                         onClick={() => toggleCategorySelection(r.category_id)}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span className={`inline-block w-3 h-3 rounded-full transition-transform ${isActive ? 'scale-[1.3]' : ''}`} style={{ backgroundColor: color }} />
-                          <span className={`truncate font-bold ${isActive ? 'text-[#FF5B00] dark:text-[#FF5B00]' : 'text-slate-700 dark:text-slate-300'}`}>{r.category_name}</span>
+                          <span className={`truncate font-bold ${isActive ? 'text-[#FF5B00] dark:text-[#FF5B00]' : 'text-white/70'}`}>{r.category_name}</span>
                         </div>
-                        <div className="shrink-0 font-black text-slate-400 dark:text-slate-500">{r.total_tickets} <span className="text-[10px] ml-1">{pct}%</span></div>
+                        <div className="shrink-0 font-black text-white/40">{r.total_tickets} <span className="text-[10px] ml-1">{pct}%</span></div>
                       </div>
                     );
                   })}
@@ -684,14 +696,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                           >
                             <td className="px-4 py-5">
                               <div className="flex flex-col">
-                                <span className="font-bold text-slate-900 dark:text-slate-100">{row.category_name}</span>
+                                <span className="font-bold text-white">{row.category_name}</span>
                                 <span className="text-[10px] text-slate-400 font-medium line-clamp-1">{row.description || 'Нет описания'}</span>
                               </div>
                             </td>
                             <td className="px-4 py-5 text-center">
                               <button
                                 onClick={() => handleDrillDown(row.category_id)}
-                                className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs hover:bg-[#FF5B00] hover:text-white transition-all mx-auto block"
+                                className="w-10 h-10 rounded-xl bg-white/10 text-slate-600 text-white/70 font-black text-xs hover:bg-[#FF5B00] hover:text-white transition-all mx-auto block"
                               >
                                 {row.total_tickets}
                               </button>
@@ -707,7 +719,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                             <td className="px-4 py-5 text-center">
                               <button
                                 onClick={() => handleDrillDown(row.category_id, 'unsolved')}
-                                className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-black text-xs hover:bg-red-500 hover:text-white transition-all mx-auto block"
+                                className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 font-black text-xs hover:bg-red-500 hover:text-white transition-all mx-auto block"
                               >
                                 {row.unsolved_tickets}
                               </button>
@@ -743,9 +755,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
 
       {/* Channels & Frequency */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:p-8">
         {/* Channel Distribution */}
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
+        <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
           <SectionHeader
             title="Каналы связи"
             subtitle="Распределение по способам обращения"
@@ -753,7 +765,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             onToggle={() => setShowChannelFreq(v => !v)}
           />
           <div className={`overflow-hidden transition-all duration-300 ${showChannelFreq ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <div className="space-y-4">
                 {channelAnalytics.length > 0 ? channelAnalytics.map((item, idx) => {
                   const total = channelAnalytics.reduce((sum, i) => sum + Number(i.count), 0);
@@ -761,10 +773,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   return (
                     <div key={item.contact_channel} className="space-y-1">
                       <div className="flex justify-between items-end">
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{channelLabels[item.contact_channel] || item.contact_channel}</span>
+                        <span className="text-sm font-bold text-white/70">{channelLabels[item.contact_channel] || item.contact_channel}</span>
                         <span className="text-xs font-black text-[#FF5B00]">{item.count} ({percent}%)</span>
                       </div>
-                      <div className="h-2 w-full bg-slate-50 dark:bg-slate-900 rounded-full overflow-hidden">
+                      <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#FF5B00] rounded-full transition-all duration-1000"
                           style={{ width: `${percent}%`, opacity: 1 - (idx * 0.15) }}
@@ -781,7 +793,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </div>
 
         {/* Client Frequency */}
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden glass-surface">
+        <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
           <SectionHeader
             title="Интенсивность запросов"
             subtitle="Среднее кол-во обращений в месяц после внедрения"
@@ -789,12 +801,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             onToggle={() => setShowChannelFreq(v => !v)}
           />
           <div className={`overflow-hidden transition-all duration-300 ${showChannelFreq ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <div className="space-y-4">
                 {frequencyAnalytics.length > 0 ? frequencyAnalytics.map((item) => (
-                  <div key={item.client_id} className="flex items-center justify-between p-3 rounded-2xl border border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                  <div key={item.client_id} className="flex items-center justify-between p-3 rounded-2xl border border-slate-50 border-white/10 hover:bg-white/10/50 transition-all">
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.client_name}</span>
+                      <span className="text-sm font-bold text-white">{item.client_name}</span>
                       <span className="text-[10px] text-slate-400 font-medium">С {new Date(item.warranty_start_date).toLocaleDateString('ru-RU')}</span>
                     </div>
                     <div className="text-right">
@@ -815,3 +827,4 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 };
 
 export default Dashboard;
+

@@ -9,22 +9,23 @@ import PpmCalculator from './components/PpmCalculator';
 import UserAvatar from './components/UserAvatar';
 import { ToastProvider } from './components/Toast';
 import { IconDashboard, IconUsers, IconSearch, IconLogs, IconBook, IconUserSettings } from './components/Icons';
-import { MessageSquare, Moon, Sun, Menu, X, ChevronRight, Calculator, Workflow, Command } from 'lucide-react';
+import { MessageSquare, Moon, Sun, Menu, X, ChevronRight, Calculator, Workflow, Command, BarChart3 } from 'lucide-react';
 import { AuditLog, User } from './types';
 import { api } from './services/api';
 import CommandPalette from './components/CommandPalette';
+import PostImplementationAnalytics from './components/PostImplementationAnalytics';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'logs' | 'search' | 'kb' | 'users' | 'tickets' | 'ppm-calculator'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'logs' | 'search' | 'kb' | 'users' | 'tickets' | 'ppm-calculator' | 'post-implementation-analytics'>('dashboard');
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
-   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true');
-   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true');
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [routeVersion, setRouteVersion] = useState(0);
 
   const toggleSidebar = () => {
@@ -69,6 +70,7 @@ const App: React.FC = () => {
         case 'logs': return 'logs';
         case 'search': return 'search';
         case 'ppm-calculator': return 'ppm-calculator';
+        case 'post-implementation-analytics': return 'post-implementation-analytics';
         default: return 'dashboard';
       }
     };
@@ -157,7 +159,7 @@ const App: React.FC = () => {
     const urlParams = new URLSearchParams(params);
     const queryString = urlParams.toString();
     const url = `/${tab}${queryString ? '?' + queryString : ''}`;
-    
+
     window.history.pushState({ tab }, '', url);
     setActiveTab(tab);
     setRouteVersion(v => v + 1);
@@ -169,25 +171,25 @@ const App: React.FC = () => {
     if (result.type === 'Клиент') {
       handleNavigate('clients', { client: result.id.toString() });
     } else if (result.type === 'Линия') {
-      handleNavigate('clients', { 
-        client: result.raw.client_id.toString(), 
-        site: result.raw.site_id.toString(), 
-        line: result.id.toString() 
+      handleNavigate('clients', {
+        client: result.raw.client_id.toString(),
+        site: result.raw.site_id.toString(),
+        line: result.id.toString()
       });
     } else if (result.type === 'Контакт' && result.raw) {
-      handleNavigate('clients', { 
-        client: result.raw.client_id.toString(), 
-        site: result.raw.site_id.toString() 
+      handleNavigate('clients', {
+        client: result.raw.client_id.toString(),
+        site: result.raw.site_id.toString()
       });
     } else if (result.type === 'Оборудование' && result.raw) {
-      handleNavigate('clients', { 
-        line: result.raw.line_id.toString(), 
-        equipment: result.id.toString() 
+      handleNavigate('clients', {
+        line: result.raw.line_id.toString(),
+        equipment: result.id.toString()
       });
     } else if (result.type === 'Контакт') {
-      handleNavigate('clients', { 
-        client: result.raw.client_id.toString(), 
-        site: result.raw.site_id.toString() 
+      handleNavigate('clients', {
+        client: result.raw.client_id.toString(),
+        site: result.raw.site_id.toString()
       });
     } else {
       handleNavigate('clients');
@@ -201,7 +203,7 @@ const App: React.FC = () => {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50/50 dark:bg-transparent flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF5B00]"></div>
       </div>
     );
@@ -213,7 +215,7 @@ const App: React.FC = () => {
 
   return (
     <ToastProvider>
-      <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 relative">
+      <div className="flex h-screen overflow-hidden bg-transparent relative p-0 sm:p-2 md:p-4 gap-0 sm:gap-2 md:gap-4" style={{ maxWidth: '100vw', width: '100%' }}>
         {/* Mobile Backdrop */}
         {isMobileMenuOpen && (
           <div
@@ -224,20 +226,22 @@ const App: React.FC = () => {
 
         {/* Sidebar */}
         <aside className={`
-        fixed md:static inset-y-0 left-0 ${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 dark:bg-slate-800 text-slate-300 flex flex-col z-50 
-        transition-all duration-300 ease-in-out md:translate-x-0
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed md:static inset-y-4 md:inset-y-0 left-4 md:left-0 h-[calc(100vh-2rem)] md:h-full 
+        ${isSidebarCollapsed ? 'w-20' : 'w-64'} 
+        bg-black/5 dark:bg-slate-900/40 glass-surface rounded-3xl border border-white/40 dark:border-white/10 text-slate-700 dark:text-slate-300 flex flex-col z-50 
+        transition-all duration-300 ease-in-out md:translate-x-0 shadow-2xl backdrop-blur-3xl
+        ${isMobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-[120%] invisible md:visible'}
       `}>
           <div className="p-6 flex items-center relative">
-            <div className="w-10 h-10 bg-[#FF5B00] rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-[#FF5B00]/20 text-lg shrink-0">TS</div>
-            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap text-xl font-bold text-white tracking-tight ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+            <div className="w-10 h-10 bg-[#FF5B00] rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-[#FF5B00]/40 text-lg shrink-0 border border-white/20">TS</div>
+            <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap text-xl font-bold text-slate-900 dark:text-white tracking-tight ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
               Support <span className="text-[#FF5B00]">Motrum</span>
             </span>
 
             {/* Toggle Sidebar Button (Desktop only, floating overlay) */}
             <button
               onClick={toggleSidebar}
-              className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 rounded-full items-center justify-center text-slate-400 hover:text-white hover:bg-[#FF5B00] transition-all shadow-md z-50"
+              className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-full items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white dark:hover:text-white hover:bg-[#FF5B00] dark:hover:bg-[#FF5B00] transition-all shadow-md z-50"
               title={isSidebarCollapsed ? "Развернуть" : "Свернуть"}
             >
               <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-0' : 'rotate-180'}`} />
@@ -251,14 +255,14 @@ const App: React.FC = () => {
                 setActiveTab('dashboard');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'dashboard' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'dashboard' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
             >
               <IconDashboard className={`w-5 h-5 shrink-0 ${activeTab === 'dashboard' ? 'text-[#FF5B00]' : ''}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 Дашборд
               </span>
               {isSidebarCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                   Дашборд
                 </div>
               )}
@@ -269,14 +273,14 @@ const App: React.FC = () => {
                 setActiveTab('clients');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'clients' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-xl transition-all relative group ${activeTab === 'clients' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
             >
               <IconUsers className={`w-5 h-5 shrink-0 ${activeTab === 'clients' ? 'text-[#FF5B00]' : ''}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 Клиенты и Объекты
               </span>
               {isSidebarCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                   Клиенты и Объекты
                 </div>
               )}
@@ -287,14 +291,14 @@ const App: React.FC = () => {
                 setActiveTab('kb');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'kb' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'kb' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
             >
               <IconBook className={`w-5 h-5 shrink-0 ${activeTab === 'kb' ? 'text-[#FF5B00]' : ''}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 База Знаний
               </span>
               {isSidebarCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                   База Знаний
                 </div>
               )}
@@ -306,14 +310,14 @@ const App: React.FC = () => {
                   window.history.pushState({ tab: 'logs' }, '', '/logs');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'logs' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'logs' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
               >
                 <IconLogs className={`w-5 h-5 shrink-0 ${activeTab === 'logs' ? 'text-[#FF5B00]' : ''}`} />
                 <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                   Журнал действий
                 </span>
                 {isSidebarCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                     Журнал действий
                   </div>
                 )}
@@ -325,14 +329,14 @@ const App: React.FC = () => {
                 setActiveTab('tickets');
                 setIsMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'tickets' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'tickets' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
             >
               <MessageSquare className={`w-5 h-5 shrink-0 ${activeTab === 'tickets' ? 'text-[#FF5B00]' : ''}`} />
               <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                 Журнал обращений
               </span>
               {isSidebarCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                   Журнал обращений
                 </div>
               )}
@@ -344,14 +348,14 @@ const App: React.FC = () => {
                   setActiveTab('ppm-calculator');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'ppm-calculator' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'ppm-calculator' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
               >
                 <Calculator className={`w-5 h-5 shrink-0 ${activeTab === 'ppm-calculator' ? 'text-[#FF5B00]' : ''}`} />
                 <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                   PPM Калькулятор
                 </span>
                 {isSidebarCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                     PPM Калькулятор
                   </div>
                 )}
@@ -364,36 +368,54 @@ const App: React.FC = () => {
                   setActiveTab('users');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'users' ? 'bg-slate-800 text-white font-medium' : 'hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'users' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
               >
                 <IconUserSettings className={`w-5 h-5 shrink-0 ${activeTab === 'users' ? 'text-[#FF5B00]' : ''}`} />
                 <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
                   Пользователи
                 </span>
                 {isSidebarCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-700 shadow-xl">
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
                     Пользователи
                   </div>
                 )}
               </button>
             )}
+            <button
+              onClick={() => {
+                window.history.pushState({ tab: 'post-implementation-analytics' }, '', '/post-implementation-analytics');
+                setActiveTab('post-implementation-analytics');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center px-4 py-3 rounded-lg transition-all relative group ${activeTab === 'post-implementation-analytics' ? 'bg-white/10 text-white font-bold shadow-inner border border-white/10' : 'text-white/50 hover:bg-white/5 hover:text-white text-medium border border-transparent'}`}
+            >
+              <BarChart3 className={`w-5 h-5 shrink-0 ${activeTab === 'post-implementation-analytics' ? 'text-[#FF5B00]' : ''}`} />
+              <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isSidebarCollapsed ? 'max-w-0 opacity-0 ml-0' : 'max-w-[200px] opacity-100 ml-3'}`}>
+                Аналитика за период
+              </span>
+              {isSidebarCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-white/95 dark:bg-slate-800 backdrop-blur-sm text-slate-800 dark:text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] border border-slate-200 dark:border-slate-700 shadow-xl">
+                  Аналитика за период
+                </div>
+              )}
+            </button>
           </nav>
 
-          <div className="mt-auto p-4 border-t border-slate-800 space-y-4">
+          <div className="mt-auto p-4 border-t border-white/20 dark:border-slate-800/50 space-y-4">
             {/* User Block (Toggle + Info + Avatar) */}
             <div className={`flex ${isSidebarCollapsed ? 'flex-col items-center gap-4' : 'items-center justify-between gap-2'} px-2 overflow-hidden min-h-[48px] transition-all duration-300`}>
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors shrink-0 border border-slate-700/50"
+                className="p-2.5 rounded-xl bg-white/40 dark:bg-slate-800 hover:bg-white/60 dark:hover:bg-slate-700 transition-colors shrink-0 border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-none"
                 title={isDarkMode ? 'Светлая тема' : 'Темная тема'}
               >
-                {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-slate-400" />}
+                {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-slate-600" />}
               </button>
 
               {/* User Info (Smooth collapse) */}
               <div className={`flex-1 transition-all duration-300 overflow-hidden whitespace-nowrap flex flex-col ${isSidebarCollapsed ? 'max-w-0 opacity-0 h-0' : 'max-w-[200px] opacity-100'}`}>
-                <div className="text-sm font-bold text-white truncate px-1">{user.username}</div>
+                <div className="text-sm font-bold text-slate-800 dark:text-white truncate px-1">{user.username}</div>
                 <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest px-1">Роль: {user.role}</div>
               </div>
 
@@ -419,24 +441,24 @@ const App: React.FC = () => {
         </aside>
 
         {/* Main Area */}
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-          <header className="h-16 bg-white dark:bg-[#18181b] border-b border-slate-200 dark:border-slate-800 flex items-center gap-4 px-4 md:px-6 sticky top-0 z-10 transition-colors glass-surface">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+          <header className="h-auto py-2 bg-white/40 dark:bg-slate-900/40 border border-white/40 dark:border-white/10 flex items-center gap-2 md:gap-4 px-3 md:px-6 sticky top-0 z-10 transition-colors glass-surface rounded-none sm:rounded-3xl m-0 sm:m-2 shadow-sm">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
+              className="p-2 -ml-1 sm:-ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
             >
               <Menu className="w-6 h-6 text-slate-600 dark:text-slate-400" />
             </button>
 
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="flex-1 max-w-lg flex items-center gap-3 px-6 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-slate-400 hover:border-primary hover:bg-white dark:hover:bg-slate-700 transition-all group"
+              className="flex-1 max-w-lg md:ml-4 flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2 md:py-2.5 glass-surface border-none text-white/50 hover:text-white transition-all group rounded-full sm:rounded-[2rem]"
             >
-              <IconSearch className="w-4 h-4 group-hover:text-primary transition-colors" />
-              <span className="text-sm font-medium flex-1 text-left">Быстрый поиск...</span>
-              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-lg shadow-sm">
-                <Command className="w-3 h-3" />
-                <span className="text-[10px] font-black">K</span>
+              <IconSearch className="w-4 h-4 text-white/40 group-hover:text-[#FF5B00] transition-colors" />
+              <span className="text-sm font-medium flex-1 text-left">Поиск...</span>
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-lg shadow-sm border border-white/10">
+                <Command className="w-3 h-3 text-white/50" />
+                <span className="text-[10px] font-black text-white/50">K</span>
               </div>
             </button>
 
@@ -445,7 +467,7 @@ const App: React.FC = () => {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 overflow-x-hidden">
+          <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 overflow-x-hidden">
             <div key={`${activeTab}-${routeVersion}`} className="animate-fadeIn">
               {activeTab === 'dashboard' && <Dashboard onNavigate={(tab) => setActiveTab(tab)} />}
               {activeTab === 'clients' && <ClientManager user={user} />}
@@ -453,10 +475,11 @@ const App: React.FC = () => {
               {activeTab === 'tickets' && <SupportTicketManager user={user} />}
               {activeTab === 'ppm-calculator' && (user.role === 'admin' || user.role === 'engineer') && <PpmCalculator />}
               {activeTab === 'users' && user.role === 'admin' && <UserManager currentUser={user} />}
+              {activeTab === 'post-implementation-analytics' && <PostImplementationAnalytics onBack={() => handleNavigate('dashboard')} />}
               {activeTab === 'logs' && user.role === 'admin' && (
                 <div className="space-y-4">
                   <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Логи аудита</h1>
-                  <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  <div className="rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden glass-surface">
                     <table className="w-full text-left">
                       <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                         <tr className="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold tracking-wider">
@@ -497,7 +520,7 @@ const App: React.FC = () => {
                       <div
                         key={i}
                         onClick={() => handleSearchNavigate(res)}
-                        className="group bg-white dark:bg-slate-800 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-[#FF5B00]/40 hover:shadow-2xl shadow-slate-200/50 dark:shadow-none transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95"
+                        className="group p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 hover:border-[#FF5B00]/40 hover:shadow-2xl shadow-slate-200/50 dark:shadow-none transition-all cursor-pointer flex flex-col justify-between relative overflow-hidden active:scale-95 glass-card glass-card-hover"
                       >
                         <div className="relative z-10">
                           <div className="flex items-center justify-between mb-4">
@@ -536,9 +559,9 @@ const App: React.FC = () => {
             </div>
           </main>
         </div>
-        <CommandPalette 
-          isOpen={isCommandPaletteOpen} 
-          onClose={() => setIsCommandPaletteOpen(false)} 
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
           onNavigate={handleNavigate}
         />
       </div>

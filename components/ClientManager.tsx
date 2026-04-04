@@ -6,7 +6,7 @@ import { IconChevronRight, IconCopy, IconChevronLeft, IconChevronDown } from './
 import { MessageSquare, ChevronRight } from 'lucide-react';
 import ExcelImportModal from './ExcelImportModal';
 
-const inputClass = "w-full border border-slate-200 dark:border-slate-700 rounded-2xl p-3 lg:p-4 text-sm bg-[#F8FAFC] dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#FF5B00]/10 focus:border-[#FF5B00] outline-none transition-all";
+const inputClass = "w-full border border-slate-200 dark:border-white/10 rounded-2xl p-3 lg:p-4 text-sm bg-white dark:bg-white/5 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] outline-none transition-all backdrop-blur-md";
 
 const Modal = ({ title, children, onClose, onSubmit }: { title: string; children?: React.ReactNode; onClose: () => void; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void }) => (
   <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -291,6 +291,18 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
   const handleLineSelect = async (line: ProductionLine) => {
     setSelectedLine(line);
+    // Auto-select site to preserve breadcrumbs if a line is clicked directly from the global index or without selecting a site first
+    if (!selectedSite || selectedSite.id !== line.site_id) {
+      const foundSite = sites.find(s => s.id === line.site_id);
+      if (foundSite) {
+        setSelectedSite(foundSite);
+        setLines(await api.getLines(foundSite.id)); // Загружаем линии для площадки
+        const url = new URL(window.location.href);
+        url.searchParams.set('site', foundSite.id.toString());
+        window.history.pushState({}, '', url.toString());
+      }
+    }
+
     setEquipment(await api.getEquipment(line.id));
     setRemote(await api.getRemoteAccess(line.id));
     setInstructions(await api.getInstructions(line.id));
@@ -337,7 +349,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
     setDraggedEquipId(equipId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', equipId.toString());
-    
+
     // Create a ghost image or just let browser handle it
     const target = e.currentTarget as HTMLElement;
     target.classList.add('dragging');
@@ -352,21 +364,21 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const handleDrop = async (e: React.DragEvent, targetEquipId: number) => {
     e.preventDefault();
     setDragOverId(null);
-    
+
     const draggedIdStr = e.dataTransfer.getData('text/plain');
     const actualDraggedId = draggedIdStr ? parseInt(draggedIdStr, 10) : draggedEquipId;
 
     if (!actualDraggedId || actualDraggedId === targetEquipId || !selectedLine) {
-        setDraggedEquipId(null);
-        return;
+      setDraggedEquipId(null);
+      return;
     }
 
     const draggedIndex = equipment.findIndex(eq => eq.id === actualDraggedId);
     const targetIndex = equipment.findIndex(eq => eq.id === targetEquipId);
 
     if (draggedIndex === -1 || targetIndex === -1) {
-        setDraggedEquipId(null);
-        return;
+      setDraggedEquipId(null);
+      return;
     }
 
     const newEquipment = [...equipment];
@@ -476,7 +488,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         const targetSiteId = selectedSite ? selectedSite.id : parseInt(payload.site_id as string, 10);
         if (!targetSiteId && !modal.data) throw new Error("Необходима площадка");
         modal.data ? await api.updateLine(modal.data.id, payload) : await api.addLine({ ...payload, site_id: targetSiteId });
-        
+
         if (selectedSite) {
           const updatedLines = await api.getLines(selectedSite.id);
           setLines(updatedLines);
@@ -484,10 +496,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             setSelectedLine(updatedLines.find(l => l.id === selectedLine.id) || null);
           }
         }
-        
+
         setAllLines(await api.getAllLines());
         if (selectedClient && !modal.data) {
-           setSites(await api.getSites(selectedClient.id));
+          setSites(await api.getSites(selectedClient.id));
         }
       } else if (modal?.type === 'equipment' && selectedLine) {
         modal.data && modal.data.id
@@ -681,9 +693,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 h-full min-h-0">
       {/* Sidebar: Navigation Tree */}
       <div className={`
-        w-full lg:w-80 bg-slate-50 dark:bg-slate-900 p-3 lg:p-4 rounded-3xl border border-slate-200/50 dark:border-slate-800 overflow-y-auto shrink-0 flex flex-col
+        w-full lg:w-80 glass-surface p-2 sm:p-3 lg:p-4 rounded-[2rem] border-none overflow-y-auto shrink-0 flex flex-col
         ${(selectedLine || selectedSite) ? 'hidden lg:flex' : 'flex'}
-        max-h-[85vh] lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] custom-scrollbar glass-surface
+        max-h-[85vh] lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] custom-scrollbar
       `}>
         {/* Navigation Breadcrumbs / Back Button for Mobile */}
         <div className="lg:hidden mb-4">
@@ -715,13 +727,13 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
           <input
             type="text"
             placeholder="🔍 Поиск клиента..."
-            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#FF5B00] focus:ring-1 focus:ring-[#FF5B00]/20 transition-all"
+            className="w-full glass-card border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#FF5B00] focus:ring-1 focus:ring-[#FF5B00]/20 transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
             value={searchClientQuery}
             onChange={(e) => setSearchClientQuery(e.target.value)}
           />
         </div>
 
-        <div className={`flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full mb-6 text-center shadow-inner ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`flex glass-card p-1 rounded-[1.5rem] mb-6 text-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] border-none ${selectedClient ? 'hidden lg:flex' : 'flex'}`}>
           {[
             { id: 'all', label: 'Все' },
             { id: 'active', label: 'Активная' },
@@ -730,7 +742,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             <button
               key={p.id}
               onClick={() => setSupportFilter(p.id as any)}
-              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-full transition-all ${supportFilter === p.id ? 'bg-white dark:bg-slate-600 text-[#FF5B00] shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+              className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-[1.2rem] transition-all ${supportFilter === p.id ? 'bg-[#FF5B00] text-white shadow-lg shadow-[#FF5B00]/30 border border-white/20' : 'text-white/50 hover:text-white'}`}
             >
               {p.label}
             </button>
@@ -740,10 +752,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         <div className="space-y-1 flex-1">
           {filteredClients.map(c => (
             <div key={c.id} className={`group/item mb-1 ${selectedClient && selectedClient.id !== c.id ? 'hidden lg:block' : 'block'}`}>
-              <div className={`flex items-center rounded-2xl transition-all ${selectedClient?.id === c.id ? 'bg-orange-100/50 dark:bg-orange-900/30 ring-1 ring-[#FF5B00]/40' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+              <div className={`flex items-center rounded-2xl transition-all ${selectedClient?.id === c.id ? 'glass-card ring-1 ring-[#FF5B00]/50 shadow-inner' : 'hover:bg-white/5 hover:backdrop-blur-md'}`}>
                 <button
                   onClick={() => handleClientSelect(c)}
-                  className={`flex-1 text-left p-3 flex items-center justify-between ${selectedClient?.id === c.id ? 'text-[#FF5B00] font-bold' : 'text-slate-700 dark:text-slate-300'}`}
+                  className={`flex-1 text-left p-3 flex items-center justify-between ${selectedClient?.id === c.id ? 'text-[#FF5B00] font-bold' : 'text-white/80'}`}
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
                     {/* Visual indicator of selection */}
@@ -753,8 +765,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 </button>
                 {!isViewer && (
                   <>
-                    <button onClick={() => setModal({ type: 'client', data: c })} className="p-2 opacity-0 group-hover/item:opacity-100 text-slate-400 dark:text-slate-500 hover:text-[#FF5B00] transition-opacity">✎</button>
-                    {isAdmin && <button onClick={() => handleDeleteClient(c.id)} className="p-2 opacity-0 group-hover/item:opacity-100 text-slate-400 dark:text-slate-500 hover:text-red-500 transition-opacity">🗑</button>}
+                    <button onClick={() => setModal({ type: 'client', data: c })} className="p-2 opacity-0 group-hover/item:opacity-100 text-white/40 hover:text-[#FF5B00] transition-opacity">✎</button>
+                    {isAdmin && <button onClick={() => handleDeleteClient(c.id)} className="p-2 opacity-0 group-hover/item:opacity-100 text-white/40 hover:text-red-500 transition-opacity">🗑</button>}
                   </>
                 )}
               </div>
@@ -770,49 +782,56 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
       {/* Main Content Area */}
       <div className={`
-        flex-1 bg-white dark:bg-slate-800 p-4 lg:p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-y-auto
+        flex-1 glass-surface p-2 sm:p-4 lg:p-8 rounded-[2rem] border-none overflow-y-auto
         ${!selectedLine && !selectedSite && !selectedClient ? 'hidden lg:block' : 'block'}
       `}>
         {/* BREADCRUMBS (Shared across all views if a client is selected) */}
         {selectedClient && (
-          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400 dark:text-slate-500 mb-6 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-2xl w-fit">
-            <button 
-              onClick={() => { setSelectedClient(null); setSites([]); setSelectedSite(null); setLines([]); setSelectedLine(null); }} 
-              className="lg:hidden hover:text-[#FF5B00] transition-colors"
+          <div className="flex flex-row items-center flex-nowrap gap-3 text-xs font-bold mb-8 glass-card border-none shadow-none bg-white/5 p-0 px-6 rounded-full h-11 w-fit max-w-full border border-white/5 whitespace-nowrap relative z-50">
+            <button
+              onClick={() => { setSelectedClient(null); setSites([]); setSelectedSite(null); setLines([]); setSelectedLine(null); }}
+              className="lg:hidden hover:text-[#FF5B00] text-[#FF5B00] transition-colors flex items-center shrink-0"
             >
-              <IconChevronLeft className="w-4 h-4 inline-block mr-1" />
+              <IconChevronLeft className="w-4 h-4 mr-1" />
               Индекс
             </button>
-            <span className="lg:hidden text-slate-300 dark:text-slate-600">/</span>
-            
+            <span className="lg:hidden text-white/20 shrink-0">|</span>
+
             <button
               onClick={() => { setSelectedSite(null); setLines([]); setSelectedLine(null); }}
-              className={`hover:text-[#FF5B00] transition-colors ${!selectedSite && !selectedLine ? 'text-slate-800 dark:text-slate-200' : ''}`}
+              className={`hover:text-[#FF5B00] transition-colors shrink-0 ${!selectedSite && !selectedLine ? 'text-[#FF5B00]' : 'text-white/60'}`}
             >
               {selectedClient.name}
             </button>
-            
+
             {selectedSite && (
               <>
-                <span className="text-slate-300 dark:text-slate-600">/</span>
-                <div className="relative group/site-nav inline-block">
+                <span className="text-white/20 shrink-0">/</span>
+                <div className="relative flex items-center group/site-nav h-full">
                   <button
                     onClick={() => setSelectedLine(null)}
-                    className={`flex items-center gap-1 hover:text-[#FF5B00] transition-colors ${!selectedLine ? 'text-slate-800 dark:text-slate-200' : ''}`}
+                    className={`flex items-center gap-1 hover:text-[#FF5B00] transition-colors shrink-0 ${!selectedLine ? 'text-[#FF5B00]' : 'text-white/60'}`}
                   >
                     {selectedSite.name}
-                    {lines.length > 0 && <IconChevronDown className="w-3 h-3 opacity-50 group-hover/site-nav:opacity-100 transition-opacity" />}
+                    {lines.length > 0 && <IconChevronDown className="w-3 h-3 opacity-40 group-hover/site-nav:opacity-100" />}
                   </button>
-                  
+
                   {lines.length > 0 && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl opacity-0 invisible group-hover/site-nav:opacity-100 group-hover/site-nav:visible transition-all duration-200 z-[100] p-2 overflow-hidden ring-1 ring-slate-100 dark:ring-slate-800 backdrop-blur-xl">
-                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 px-3 py-1 border-b dark:border-slate-800">Перейти к линии:</div>
+                    <div
+                      style={{
+                        backgroundColor: 'var(--bg-main)',
+                        backdropFilter: 'blur(40px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(40px) saturate(180%)'
+                      }}
+                      className="absolute top-full left-0 mt-2 w-72 border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover/site-nav:opacity-100 group-hover/site-nav:visible transition-all duration-200 z-[9999] p-2"
+                    >
+                      <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-2 px-3 py-2 border-b border-white/5">Перейти к линии:</div>
                       <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
                         {lines.map(l => (
                           <button
                             key={l.id}
                             onClick={() => handleLineSelect(l)}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-between group/line-item ${selectedLine?.id === l.id ? 'bg-orange-50 dark:bg-orange-900/30 text-[#FF5B00] font-black' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold'}`}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-between ${selectedLine?.id === l.id ? 'bg-[#FF5B00]/20 text-[#FF5B00] font-black' : 'text-white/70 hover:bg-white/10 font-bold'}`}
                           >
                             <span>{l.name}</span>
                             {selectedLine?.id === l.id && <span className="w-1.5 h-1.5 bg-[#FF5B00] rounded-full"></span>}
@@ -827,8 +846,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
             {selectedLine && (
               <>
-                <span className="text-slate-300 dark:text-slate-600">/</span>
-                <span className="text-slate-800 dark:text-slate-200">{selectedLine.name}</span>
+                <span className="text-white/30">/</span>
+                <span className="text-white">{selectedLine.name}</span>
               </>
             )}
           </div>
@@ -836,8 +855,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         {
           !selectedLine ? (
             !selectedClient ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-slate-600 space-y-4">
-                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center">
+              <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center">
                   <svg className="w-10 h-10 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 </div>
                 <p className="text-sm font-bold uppercase tracking-widest opacity-50 text-center px-4">Выберите клиента в меню слева</p>
@@ -845,17 +864,17 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             ) : selectedSite ? (
               <div className="space-y-8 animate-in fade-in zoom-in duration-300">
                 <div>
-                  <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">{selectedSite.name}</h1>
-                  <p className="text-slate-400 dark:text-slate-500 font-medium">{selectedClient.name} • Площадка</p>
+                  <h1 className="text-3xl font-black text-white">{selectedSite.name}</h1>
+                  <p className="text-white/50 font-medium">{selectedClient.name} • Площадка</p>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 dark:bg-slate-800/50 rounded-bl-full -mr-16 -mt-16"></div>
+                <div className="glass-card p-6 rounded-[2rem] border-none relative">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full -mr-16 -mt-16"></div>
                   <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00] mb-4 relative z-10">Информация о площадке</h3>
                   <div className="space-y-4 relative z-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Адрес</div>
+                        <div className="text-[10px] text-white/50 uppercase font-black tracking-widest mb-1">Адрес</div>
                         {selectedSite.address ? (
                           <a
                             href={`https://yandex.ru/maps/?text=${encodeURIComponent(selectedSite.address)}`}
@@ -865,26 +884,26 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                             title="Открыть на Яндекс.Картах"
                           >
                             {selectedSite.address}
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 normal-case font-bold ml-1">→ на карте</span>
+                            <span className="text-[10px] text-white/50 normal-case font-bold ml-1">→ на карте</span>
                           </a>
                         ) : (
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Не указано</p>
+                          <p className="text-sm font-medium text-white/70">Не указано</p>
                         )}
                       </div>
                       <div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">L3 Маркировка</div>
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-100 flex items-center gap-2">
+                        <div className="text-[10px] text-white/50 uppercase font-black tracking-widest mb-1">L3 Маркировка</div>
+                        <p className="text-sm font-bold text-white flex items-center gap-2">
                           <span className="w-1.5 h-1.5 bg-[#FF5B00] rounded-full"></span>
                           {selectedSite.l3_provider === 'Другое' ? selectedSite.l3_provider_custom : (selectedSite.l3_provider || 'Не указано')}
                         </p>
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Комментарии</div>
-                      <p className="text-sm text-slate-700 dark:text-slate-300 italic mb-4">{selectedSite.notes || 'Нет комментариев'}</p>
+                      <div className="text-[10px] text-white/50 uppercase font-black tracking-widest mb-1">Комментарии</div>
+                      <p className="text-sm text-white/70 italic mb-4">{selectedSite.notes || 'Нет комментариев'}</p>
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <div className="mt-6 pt-6 border-t border-white/10">
                       <div className="flex justify-between items-center mb-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FF5B00]">Контактные лица</h4>
                         {!isViewer && (
@@ -899,27 +918,27 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {selectedSite.contacts && selectedSite.contacts.length > 0 ? (
                           selectedSite.contacts.map(contact => (
-                            <div key={contact.id} className="bg-slate-50/50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100/50 dark:border-slate-700/50 group hover:border-orange-100 dark:hover:border-orange-900/30 transition-all">
+                            <div key={contact.id} className="bg-white/5 p-4 rounded-2xl border border-white/10 group hover:border-[#FF5B00]/30 transition-all">
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex-1 overflow-hidden mr-4">
-                                  <div className="font-bold text-slate-900 dark:text-slate-100 truncate" title={contact.fio}>{contact.fio}</div>
-                                  {contact.position && <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider truncate">{contact.position}</div>}
+                                  <div className="font-bold text-white truncate" title={contact.fio}>{contact.fio}</div>
+                                  {contact.position && <div className="text-[10px] text-white/50 font-medium uppercase tracking-wider truncate">{contact.position}</div>}
 
                                   <div className="space-y-1.5 mt-3">
                                     {contact.phone && (
-                                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                      <div className="flex items-center gap-2 text-xs text-white/70">
                                         <span className="opacity-50">📞</span>
                                         <a href={`tel:${contact.phone}`} className="hover:text-[#FF5B00] hover:underline truncate">{contact.phone}</a>
                                       </div>
                                     )}
                                     {contact.email && (
-                                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
+                                      <div className="flex items-center gap-2 text-xs text-white/70 overflow-hidden">
                                         <span className="opacity-50">✉️</span>
                                         <a href={`mailto:${contact.email}`} className="hover:text-[#FF5B00] hover:underline truncate" title={contact.email}>{contact.email}</a>
                                       </div>
                                     )}
                                     {contact.comments && (
-                                      <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50 text-slate-500 italic text-[11px] leading-relaxed">
+                                      <div className="mt-2 pt-2 border-t border-white/10 text-white/50 italic text-[11px] leading-relaxed">
                                         {contact.comments}
                                       </div>
                                     )}
@@ -928,7 +947,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                 <div className="flex items-center shrink-0 ml-2">
                                   {!isViewer && (
                                     <div className="flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => setModal({ type: 'site_contact', data: contact })} className="p-1.5 text-slate-400 hover:text-[#FF5B00] transition-colors">✎</button>
+                                      <button onClick={() => setModal({ type: 'site_contact', data: contact })} className="p-1.5 text-white/50 hover:text-[#FF5B00] transition-colors">✎</button>
                                       {isAdmin && (
                                         <button
                                           onClick={async () => {
@@ -956,12 +975,12 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 mt-6">
+                    <div className="flex gap-2 pt-4 border-t border-white/10 mt-6">
                       {isEngineer && (
-                        <button onClick={() => setModal({ type: 'site', data: selectedSite })} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Редактировать объект</button>
+                        <button onClick={() => setModal({ type: 'site', data: selectedSite })} className="px-4 py-2 bg-white/5 rounded-full text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white transition-colors border border-white/10 shadow-inner">Редактировать объект</button>
                       )}
                       {isAdmin && (
-                        <button onClick={() => handleDeleteSite(selectedSite.id)} className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">Удалить объект</button>
+                        <button onClick={() => handleDeleteSite(selectedSite.id)} className="px-4 py-2 bg-red-500/10 rounded-full text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors border border-red-500/20 shadow-inner">Удалить объект</button>
                       )}
                     </div>
                   </div>
@@ -969,9 +988,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
 
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Производственные линии ({lines.length})</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00]">Производственные линии ({lines.length})</h3>
                     {isEngineer && lines.length > 0 && (
-                      <button onClick={() => setModal({ type: 'line', data: null })} className="px-4 py-2 bg-[#FF5B00] text-white rounded-xl text-xs font-bold hover:bg-[#e65200] shadow-sm transition-colors">+ Добавить линию</button>
+                      <button onClick={() => setModal({ type: 'line', data: null })} className="px-5 py-2.5 bg-[#FF5B00] text-white rounded-[2rem] text-xs font-bold hover:bg-[#e65200] shadow-[0_0_15px_rgba(255,91,0,0.5)] transition-all micro-lift">+ Добавить линию</button>
                     )}
                   </div>
                   {lines.length > 0 ? (
@@ -980,19 +999,25 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                         <button
                           key={line.id}
                           onClick={() => handleLineSelect(line)}
-                          className="p-6 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-[#FF5B00] hover:shadow-lg transition-all text-left group"
+                          className="glass-card p-6 rounded-[2rem] border border-white/5 hover:border-[#FF5B00]/50 transition-all text-left group glass-card-hover"
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="w-12 h-12 bg-[#FF5B00]/10 dark:bg-[#FF5B00]/20 rounded-xl flex items-center justify-center group-hover:bg-[#FF5B00] transition-colors">
-                              <svg className="w-6 h-6 text-[#FF5B00] group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                              </svg>
-                            </div>
+                          <div className="space-y-1 relative z-10">
+                            <h4 className="font-black text-white text-lg group-hover:text-[#FF5B00] transition-colors">{line.name}</h4>
+                            <p className="text-[10px] text-white/50 uppercase tracking-widest font-black">Шкаф: {line.cabinet_number || 'Не указан'}</p>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4 relative z-10">
                             <div className="flex items-center gap-2">
                               {isEngineer && !isViewer && (
-                                <div onClick={(e) => { e.stopPropagation(); handleDuplicateLine(line); }} title="Создать копию линии" className="opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#FF5B00] bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 text-slate-400 transition-all hover:scale-110">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                </div>
+                                <>
+                                  <div onClick={(e) => { e.stopPropagation(); handleDuplicateLine(line); }} title="Создать копию линии" className="opacity-0 group-hover:opacity-100 p-1.5 hover:text-[#FF5B00] bg-white/5 rounded-lg shadow-sm border border-white/10 text-white/50 transition-all hover:scale-110">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                  </div>
+                                  {isAdmin && (
+                                    <div onClick={(e) => { e.stopPropagation(); handleDeleteLine(line.id); }} title="Удалить линию" className="opacity-0 group-hover:opacity-100 p-1.5 hover:text-red-500 bg-white/5 rounded-lg shadow-sm border border-white/10 text-white/50 transition-all hover:scale-110">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </div>
+                                  )}
+                                </>
                               )}
                               <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Линия</div>
                             </div>
@@ -1133,9 +1158,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                   </div>
                                   <div className="flex items-center gap-3">
                                     {isEngineer && !isViewer && (
-                                       <div onClick={(e) => { e.stopPropagation(); handleDuplicateLine(l); }} title="Дублировать" className="opacity-0 group-hover:opacity-100 p-1 hover:text-emerald-500 transition-all text-slate-400 cursor-pointer">
-                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                       </div>
+                                      <div onClick={(e) => { e.stopPropagation(); handleDuplicateLine(l); }} title="Дублировать" className="opacity-0 group-hover:opacity-100 p-1 hover:text-emerald-500 transition-all text-slate-400 cursor-pointer">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                      </div>
                                     )}
                                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(l, currentNow).status) ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-slate-300'}`}></div>
                                   </div>
@@ -1190,15 +1215,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                         Дублировать
                       </button>
                     )}
-                    {isEngineer && selectedSite && (
-                      <button
-                        onClick={() => setModal({ type: 'line', data: null })}
-                        className="px-4 py-2.5 bg-[#FF5B00] text-white rounded-full text-xs font-bold hover:bg-[#e65200] transition-colors shadow-sm"
-                        title="Добавить новую линию в текущую площадку"
-                      >
-                        + Линия
-                      </button>
-                    )}
+
                     <button onClick={() => setModal({ type: 'line', data: selectedLine })} className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Настроить линию</button>
                     {isAdmin && (
                       <button onClick={() => handleDeleteLine(selectedLine.id)} className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-full text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">Удалить линию</button>
@@ -1259,13 +1276,13 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                   )}
                 </div>
 
-                <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl flex flex-col">
+                <div className="glass-card p-6 rounded-3xl flex flex-col">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-[#FF5B00]">Удаленное подключение</h3>
                     {!isViewer && (
                       <button
                         onClick={() => setModal({ type: 'remote', data: null })}
-                        className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest underline transition-colors"
+                        className="text-[10px] font-bold text-slate-500 hover:text-[#FF5B00] dark:text-white/40 dark:hover:text-white uppercase tracking-widest underline transition-colors"
                       >
                         + Добавить
                       </button>
@@ -1273,43 +1290,43 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                   </div>
                   <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                     {remote.length > 0 ? remote.map((r) => (
-                      <div key={r.id} className="group/remote border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                      <div key={r.id} className="group/remote border-b border-black/5 dark:border-white/5 pb-3 last:border-0 last:pb-0">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 group/id">
-                              <div className="text-lg font-black text-white truncate" title={r.url_or_address}>{r.url_or_address}</div>
+                              <div className="text-lg font-black text-slate-800 dark:text-white truncate" title={r.url_or_address}>{r.url_or_address}</div>
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(r.url_or_address);
                                   setToastMessage('ID скопирован');
                                   setTimeout(() => setToastMessage(null), 2000);
                                 }}
-                                className="p-1 text-white/20 hover:text-white transition-colors opacity-0 group-hover/id:opacity-100"
+                                className="p-1 text-slate-400 hover:text-[#FF5B00] dark:text-white/20 dark:hover:text-white transition-colors opacity-0 group-hover/id:opacity-100"
                                 title="Копировать ID"
                               >
                                 <IconCopy className="w-3.5 h-3.5" />
                               </button>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="inline-block px-2 py-0.5 rounded bg-white/10 text-[9px] font-bold uppercase tracking-wider">{r.type}</span>
-                              {r.notes && <span className="text-[10px] text-white/40 italic truncate max-w-[150px]">{r.notes}</span>}
+                              <span className="inline-block px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[9px] font-bold text-slate-600 dark:text-white/80 uppercase tracking-wider">{r.type}</span>
+                              {r.notes && <span className="text-[10px] text-slate-500 dark:text-white/40 italic truncate max-w-[150px]">{r.notes}</span>}
                             </div>
                             {r.credentials && (
-                              <div className="text-[10px] text-white/30 font-mono mt-2 bg-black/20 p-2 rounded-lg break-all">
+                              <div className="text-[10px] text-slate-700 dark:text-white/50 font-mono mt-2 bg-white/40 dark:bg-black/20 border border-white/20 dark:border-transparent p-2 rounded-lg break-all">
                                 {r.credentials}
                               </div>
                             )}
                           </div>
                           {!isViewer && (
                             <div className="flex gap-1 ml-2 lg:opacity-0 lg:group-hover/remote:opacity-100 transition-opacity shrink-0">
-                              <button onClick={() => setModal({ type: 'remote', data: r })} className="p-1.5 text-white/40 hover:text-[#FF5B00] transition-colors">✎</button>
-                              <button onClick={() => handleDeleteRemote(r.id)} className="p-1.5 text-white/40 hover:text-red-500 transition-colors">✕</button>
+                              <button onClick={() => setModal({ type: 'remote', data: r })} className="p-1.5 text-slate-400 dark:text-white/40 hover:text-[#FF5B00] transition-colors">✎</button>
+                              <button onClick={() => handleDeleteRemote(r.id)} className="p-1.5 text-slate-400 dark:text-white/40 hover:text-red-500 transition-colors">✕</button>
                             </div>
                           )}
                         </div>
                       </div>
                     )) : (
-                      <div className="text-white/20 text-xs italic py-4">Параметры доступа не настроены</div>
+                      <div className="text-slate-400 dark:text-white/40 text-xs italic py-4">Параметры доступа не настроены</div>
                     )}
                   </div>
                 </div>
@@ -1345,11 +1362,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                       {equipment.length > 0 ? equipment.map(e => (
                         <React.Fragment key={e.id}>
                           <tr
-                            className={`text-sm group hover:bg-orange-50/10 dark:hover:bg-orange-900/5 transition-all cursor-move ${
-                              draggedEquipId === e.id ? 'opacity-30 bg-slate-50 dark:bg-slate-800' : ''
-                            } ${dragOverId === e.id ? 'border-t-2 border-[#FF5B00] bg-orange-50/30' : ''} ${
-                              expandedEquipId === e.id ? 'bg-slate-50 dark:bg-slate-800/50' : ''
-                            }`}
+                            className={`text-sm group hover:bg-orange-50/10 dark:hover:bg-orange-900/5 transition-all cursor-move ${draggedEquipId === e.id ? 'opacity-30 bg-slate-50 dark:bg-slate-800' : ''
+                              } ${dragOverId === e.id ? 'border-t-2 border-[#FF5B00] bg-orange-50/30' : ''} ${expandedEquipId === e.id ? 'bg-slate-50 dark:bg-slate-800/50' : ''
+                              }`}
                             draggable={!isViewer}
                             onDragStart={(ev) => handleDragStart(ev, e.id)}
                             onDragOver={(ev) => handleDragOver(ev, e.id)}
@@ -1361,7 +1376,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                             </td>
                             <td className="px-6 py-3">
                               <div className="flex items-center gap-3">
-                                <button 
+                                <button
                                   onClick={(ev) => { ev.stopPropagation(); setExpandedEquipId(expandedEquipId === e.id ? null : e.id); }}
                                   className={`w-6 h-6 flex items-center justify-center rounded-lg transition-all ${expandedEquipId === e.id ? 'bg-primary text-white rotate-90' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 opacity-0 group-hover:opacity-100'}`}
                                 >
@@ -1383,7 +1398,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                               )}
                             </td>
                             <td className="px-6 py-3 text-center">
-                              <div 
+                              <div
                                 className={`inline-block w-2 h-2 rounded-full mr-2 ${e.status === 'active' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/40' : e.status === 'maintenance' ? 'bg-amber-500 shadow-sm shadow-amber-500/40' : 'bg-red-500 shadow-sm shadow-red-500/40'}`}
                               />
                               <span className={`text-[10px] font-black uppercase tracking-wider ${e.status === 'active' ? 'text-emerald-600' : e.status === 'maintenance' ? 'text-amber-600' : 'text-red-600'}`}>
@@ -1393,7 +1408,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                             <td className="px-6 py-3 text-slate-500 dark:text-slate-400 text-xs italic max-w-[200px] truncate">{e.notes}</td>
                             <td className="px-6 py-3 text-right space-x-1">
                               {!isViewer && (
-                                <button 
+                                <button
                                   onClick={(ev) => {
                                     ev.stopPropagation();
                                     // Navigate to support tickets tab with pre-filled parameters
@@ -1800,12 +1815,12 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
             onSubmit={handleSubmit}
           >
             {!modal.data && (
-              <div className="mb-6 p-4 bg-orange-50/50 rounded-2xl border border-orange-100/50">
+              <div className="mb-6 p-4 bg-orange-50/50 dark:bg-[#FF5B00]/10 rounded-2xl border border-orange-100/50 dark:border-[#FF5B00]/20">
                 <label className="text-[10px] font-black text-[#FF5B00] uppercase mb-2 block tracking-widest">Найти в базе (копирование модели)</label>
                 <input
                   type="text"
                   placeholder="Поиск по модели или S/N..."
-                  className="w-full border border-orange-100 bg-white rounded-xl p-2.5 text-xs mb-2 shadow-sm focus:ring-0 outline-none"
+                  className="w-full border border-orange-100 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-white mb-2 shadow-sm focus:ring-0 outline-none"
                   value={equipSearchQuery}
                   onChange={(e) => searchGlobalEquip(e.target.value)}
                 />
@@ -1814,10 +1829,8 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                     <button
                       key={idx}
                       type="button"
-                      className="w-full text-left p-2 text-[11px] hover:bg-[#FF5B00] hover:text-white rounded-lg flex justify-between bg-white border border-slate-100 transition-all group"
+                      className="w-full text-left p-2 text-[11px] hover:bg-[#FF5B00] hover:text-white rounded-lg flex justify-between bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 transition-all group"
                       onClick={() => {
-                        // Use state update to force re-render with new defaultValues
-                        // We set ID to undefined so it treats it as a NEW record
                         setModal({ type: 'equipment', data: { ...res.raw, id: undefined } });
                         setEquipSearchQuery('');
                         setEquipSearchResults([]);

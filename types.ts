@@ -251,3 +251,33 @@ export interface CalculationResult {
   opticalFovW: number;
   discrepancy: number;
 }
+
+export interface PostImplementationAnalytics {
+  monthlyTrend: {
+    month_index: number;
+    ticket_count: number;
+    active_lines: number;
+    avg_tickets_per_line: number;
+    avg_resolution_hours: number;
+    avg_work_minutes: number;
+  }[];
+  lineStats: {
+    line_id: number;
+    line_name: string;
+    client_id: number;
+    client_name: string;
+    start_date: string;
+    first_month_tickets: number;
+    subsequent_tickets: number;
+    subsequent_avg: number;
+    months_since_start: number;
+    last_30d_tickets: number;
+    total_effort_mins: number;
+    avg_resolution_hours: number;
+    l3_escalations: number;
+  }[];
+  categories: {
+    category_name: string;
+    ticket_count: number;
+  }[];
+}

@@ -14,7 +14,8 @@ import {
   SupportTicket,
   SiteContact,
   TicketCategory,
-  CameraPreset
+  CameraPreset,
+  PostImplementationAnalytics
 } from '../types';
 
 class ApiService {
@@ -249,6 +250,10 @@ class ApiService {
 
   async getTicketFrequencyAnalytics(): Promise<any[]> {
     return this.request('/tickets/analytics/frequency');
+  }
+
+  async getPostImplementationAnalytics(): Promise<PostImplementationAnalytics> {
+    return this.request('/tickets/analytics/post-implementation');
   }
 
   // Health check

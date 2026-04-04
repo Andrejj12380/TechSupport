@@ -1,54 +1,56 @@
 :root {
-  /* Premium Palette - Solar Orange & Deep Slate */
+  /* Premium Palette - Solar Orange (#FF5B00) */
   --primary: #FF5B00;
   --primary-hover: #E65200;
-  --primary-glow: rgba(255, 91, 0, 0.15);
+  --primary-glow: rgba(255, 91, 0, 0.3);
   
-  --bg-main: #F8FAFC;
-  --bg-card: #FFFFFF;
-  --border-subtle: rgba(226, 232, 240, 0.8);
+  /* === LIGHT THEME (Milky Cream) === */
+  --bg-main: #F5F0EB; /* Warm milky cream */
+  --bg-card: rgba(255, 255, 255, 0.55); /* Semi-transparent white */
+  --border-subtle: rgba(0, 0, 0, 0.06);
   
-  --text-main: #0F172A;
-  --text-muted: #64748B;
+  --text-main: #1E1E22;
+  --text-muted: rgba(30, 30, 34, 0.55);
   
-  /* Glassmorphism Tokens */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-blur: blur(12px);
+  /* Glassmorphism Tokens - Light */
+  --glass-bg: rgba(255, 255, 255, 0.4);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-blur: blur(40px);
   
-  /* Shadows */
-  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
-  --shadow-glow: 0 0 20px var(--primary-glow);
-  --glass-surface-bg: rgba(255, 255, 255, 0.52);
-  --glass-surface-border: rgba(255, 255, 255, 0.62);
-  --glass-surface-shadow: 0 14px 40px rgba(15, 23, 42, 0.14);
-  --glass-surface-blur: 24px;
-  --glass-highlight: rgba(255, 255, 255, 0.72);
-  --glass-edge: rgba(255, 255, 255, 0.36);
-  --glass-tint-a: rgba(255, 255, 255, 0.22);
-  --glass-tint-b: rgba(255, 91, 0, 0.08);
+  /* Shadows & Highlights */
+  --shadow-premium: 0 24px 40px -8px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 24px rgba(255, 91, 0, 0.15);
+  --glass-surface-bg: rgba(255, 255, 255, 0.45);
+  --glass-surface-border: rgba(0, 0, 0, 0.06);
+  --glass-surface-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.06);
+  --glass-surface-blur: 40px;
+  --glass-highlight: rgba(255, 255, 255, 0.8); /* Top/Left lighting */
+  --glass-edge: rgba(0, 0, 0, 0.04);
+  --glass-tint-a: rgba(255, 255, 255, 0.5); /* White sheen */
+  --glass-tint-b: rgba(255, 91, 0, 0.03); /* Orange subtle glow */
 }
 
+/* === DARK THEME (Anthracite / Warm Charcoal) === */
 .dark {
-  --bg-main: #020617;
-  --bg-card: #0F172A;
-  --border-subtle: rgba(71, 85, 105, 0.28);
+  --bg-main: #1A1A1F;
+  --bg-card: rgba(30, 30, 35, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.08);
   
-  --text-main: #F8FAFC;
-  --text-muted: #94A3B8;
+  --text-main: #FFFFFF;
+  --text-muted: rgba(255, 255, 255, 0.6);
   
-  --glass-bg: rgba(15, 23, 42, 0.7);
-  --glass-border: rgba(30, 41, 59, 0.5);
+  --glass-bg: rgba(30, 30, 35, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.08);
   
-  --shadow-premium: 0 18px 34px -10px rgba(2, 6, 23, 0.35), 0 8px 16px -8px rgba(15, 23, 42, 0.22);
-  --glass-surface-bg: rgba(30, 41, 59, 0.32);
-  --glass-surface-border: rgba(148, 163, 184, 0.2);
-  --glass-surface-shadow: 0 16px 34px rgba(2, 6, 23, 0.38);
-  --glass-surface-blur: 30px;
-  --glass-highlight: rgba(255, 255, 255, 0.2);
-  --glass-edge: rgba(203, 213, 225, 0.2);
-  --glass-tint-a: rgba(148, 163, 184, 0.16);
-  --glass-tint-b: rgba(56, 189, 248, 0.08);
+  --shadow-premium: 0 24px 40px -8px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 24px var(--primary-glow);
+  --glass-surface-bg: rgba(30, 30, 35, 0.4);
+  --glass-surface-border: rgba(255, 255, 255, 0.08);
+  --glass-surface-shadow: 0 24px 40px -8px rgba(0, 0, 0, 0.5);
+  --glass-highlight: rgba(255, 255, 255, 0.12);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-tint-a: rgba(255, 255, 255, 0.03);
+  --glass-tint-b: rgba(255, 91, 0, 0.04);
 }
 
 /* Glassmorphism Utility */
@@ -56,56 +58,116 @@
   background: var(--glass-bg) !important;
   backdrop-filter: var(--glass-blur) !important;
   -webkit-backdrop-filter: var(--glass-blur) !important;
-  border: 1px solid var(--glass-border) !important;
+  border-top: 1px solid var(--glass-highlight) !important;
+  border-left: 1px solid var(--glass-highlight) !important;
+  border-right: 1px solid var(--glass-border) !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 2rem;
 }
 
-.glass-surface {
+.glass-surface, .glass-card {
   position: relative;
   background:
     radial-gradient(120% 140% at 0% 0%, var(--glass-tint-a) 0%, transparent 55%),
-    radial-gradient(120% 140% at 100% 100%, var(--glass-tint-b) 0%, transparent 60%),
     var(--glass-surface-bg) !important;
-  border: 1px solid var(--glass-surface-border) !important;
-  box-shadow:
-    var(--glass-surface-shadow),
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: saturate(180%) blur(var(--glass-surface-blur));
-  -webkit-backdrop-filter: saturate(180%) blur(var(--glass-surface-blur));
-}
-
-.glass-card {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(165deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 100%),
-    var(--glass-surface-bg) !important;
-  border: 1px solid var(--glass-edge) !important;
-  box-shadow:
-    0 12px 30px rgba(15, 23, 42, 0.12),
-    inset 0 1px 0 var(--glass-highlight);
-  backdrop-filter: saturate(170%) blur(calc(var(--glass-surface-blur) - 4px));
-  -webkit-backdrop-filter: saturate(170%) blur(calc(var(--glass-surface-blur) - 4px));
+  
+  /* Miketopus Specular Highlight effect */
+  border-top: 1px solid var(--glass-highlight) !important;
+  border-left: 1px solid var(--glass-highlight) !important;
+  border-right: 1px solid var(--glass-surface-border) !important;
+  border-bottom: 1px solid transparent !important;
+  
+  box-shadow: var(--glass-surface-shadow);
+  backdrop-filter: blur(var(--glass-surface-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-surface-blur)) saturate(150%);
+  border-radius: 2rem !important; /* Extremely rounded UI */
 }
 
 .glass-card-hover {
-  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease, background-color 220ms ease;
+  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card-hover:hover {
-  border-color: rgba(255, 255, 255, 0.55) !important;
+  transform: translateY(-2px);
+  border-top-color: rgba(255, 255, 255, 0.3) !important;
+  border-left-color: rgba(255, 255, 255, 0.3) !important;
   box-shadow:
-    0 18px 34px rgba(255, 91, 0, 0.12),
-    0 12px 26px rgba(15, 23, 42, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 30px 50px -10px rgba(0, 0, 0, 0.6),
+    0 12px 24px rgba(255, 91, 0, 0.15) !important;
 }
 
 .dark .glass-card-hover:hover {
-  border-color: rgba(226, 232, 240, 0.45) !important;
+  border-top-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* === LIGHT THEME: TEXT & GLASS OVERRIDES === */
+/* Remap hardcoded text-white to dark text in light mode */
+html:not(.dark) .text-white {
+  color: var(--text-main) !important;
+}
+html:not(.dark) .text-white\/80,
+html:not(.dark) .text-white\/90 {
+  color: #333333 !important;
+}
+html:not(.dark) .text-white\/40,
+html:not(.dark) .text-white\/50,
+html:not(.dark) .text-white\/60,
+html:not(.dark) .text-white\/70 {
+  color: var(--text-muted) !important;
+}
+html:not(.dark) .text-white\/10,
+html:not(.dark) .text-white\/20,
+html:not(.dark) .text-white\/30 {
+  color: rgba(30, 30, 34, 0.3) !important;
+}
+/* Override placeholder colors */
+html:not(.dark) .placeholder\:text-white\/40::-webkit-input-placeholder {
+  color: rgba(30, 30, 34, 0.4) !important;
+}
+html:not(.dark) .placeholder\:text-white\/40::-moz-placeholder {
+  color: rgba(30, 30, 34, 0.4) !important;
+}
+html:not(.dark) .placeholder\:text-white\/40:-ms-input-placeholder {
+  color: rgba(30, 30, 34, 0.4) !important;
+}
+
+html:not(.dark) .bg-white\/5,
+html:not(.dark) .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+html:not(.dark) .border-white\/10,
+html:not(.dark) .border-white\/20,
+html:not(.dark) .border-white\/40 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html:not(.dark) .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.04) !important;
+}
+/* Glass card hover in light mode: softer shadows */
+html:not(.dark) .glass-card-hover:hover {
+  border-top-color: rgba(255, 255, 255, 0.9) !important;
+  border-left-color: rgba(255, 255, 255, 0.9) !important;
   box-shadow:
-    0 18px 32px rgba(2, 6, 23, 0.35),
-    0 10px 24px rgba(56, 189, 248, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    0 30px 50px -10px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(255, 91, 0, 0.08) !important;
+}
+
+/* Glass Zebra Tables */
+.glass-surface table tbody tr:nth-child(even),
+.glass-card table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+.dark .glass-surface table tbody tr:nth-child(even),
+.dark .glass-card table tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+.glass-surface table tbody tr:hover,
+.glass-card table tbody tr:hover {
+  background-color: rgba(255, 91, 0, 0.08) !important;
+}
+.dark .glass-surface table tbody tr:hover,
+.dark .glass-card table tbody tr:hover {
+  background-color: rgba(255, 91, 0, 0.15) !important;
 }
 
 .premium-card {
@@ -210,16 +272,57 @@
 }
 
 /* Base resets & Fallbacks */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden !important;
+}
+
+/* === MOBILE LAYOUT GUARDRAILS === */
+/* These CSS rules are the "nuclear option" — they work independently of     */
+/* Tailwind CDN and guarantee correct mobile layout on real Android/iOS.     */
+@media (max-width: 767px) {
+  /* Root flex container: force 100vw, prevent any child from stretching it */
+  #root > div {
+    max-width: 100vw !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Sidebar: must not participate in flex layout when closed */
+  #root aside {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    z-index: 50;
+  }
+
+  /* Main content area: full width, no influence from sidebar */
+  #root > div > div:last-child {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+  }
+}
+
 body {
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  transition: background-color 0.3s ease;
+  background-color: var(--bg-main) !important;
+  background-image:
+    radial-gradient(ellipse at 10% 20%, rgba(255, 200, 160, 0.2), transparent 50%),
+    radial-gradient(ellipse at 90% 70%, rgba(220, 190, 170, 0.15), transparent 50%),
+    radial-gradient(ellipse at 50% 5%, rgba(255, 91, 0, 0.05), transparent 40%) !important;
+  background-attachment: fixed;
+  color: var(--text-main) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .dark body {
+  background-color: var(--bg-main) !important;
   background-image:
-    radial-gradient(1200px 600px at 10% -10%, rgba(56, 189, 248, 0.08), transparent 60%),
-    radial-gradient(1000px 500px at 90% 0%, rgba(255, 91, 0, 0.06), transparent 55%);
+    radial-gradient(ellipse at 15% 30%, rgba(255, 91, 0, 0.04), transparent 50%),
+    radial-gradient(ellipse at 85% 60%, rgba(80, 70, 60, 0.08), transparent 50%),
+    radial-gradient(ellipse at 50% 10%, rgba(120, 110, 100, 0.04), transparent 40%) !important;
+  background-attachment: fixed;
 }
 
 /* Fallback and custom styles for Markdown headers to ensure they are distinct */
@@ -343,4 +446,309 @@ body {
 
 .density-table tr:hover td {
   background: rgba(255, 91, 0, 0.02);
+}
+
+/* Kanban Board Styles */
+.kanban-board {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  padding: 1.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .kanban-board {
+    padding: 1rem;
+    gap: 1rem;
+  }
+}
+
+.kanban-column {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 600px;
+  min-width: 320px;
+  background: var(--bg-main);
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.kanban-column.drag-over {
+  background: rgba(255, 91, 0, 0.05);
+  border-color: var(--primary);
+  box-shadow: 0 0 20px rgba(255, 91, 0, 0.1);
+}
+
+.kanban-header {
+  padding: 1.5rem;
+  border-bottom: 2px solid var(--border-subtle);
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.kanban-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.kanban-header-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kanban-header-count {
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-main);
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.kanban-tickets {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kanban-ticket {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  padding: 1rem;
+  cursor: grab;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  user-select: none;
+}
+
+.kanban-ticket:active {
+  cursor: grabbing;
+}
+
+.kanban-ticket:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(255, 91, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.kanban-ticket.dragging {
+  opacity: 0.5;
+  transform: rotate(3deg);
+  box-shadow: 0 10px 30px rgba(255, 91, 0, 0.2);
+}
+
+.kanban-ticket-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.kanban-ticket-id {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kanban-ticket-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.kanban-ticket-actions button {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+  font-size: 0.75rem;
+}
+
+.kanban-ticket-actions button:hover {
+  background: var(--primary-glow);
+  color: var(--primary);
+}
+
+.kanban-ticket-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.kanban-ticket-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.kanban-ticket-client {
+  font-weight: 700;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.kanban-ticket-support {
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-main);
+  border-radius: 0.25rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  text-align: center;
+  min-width: 50px;
+}
+
+.kanban-ticket-support.warranty {
+  background: rgba(16, 185, 129, 0.1);
+  color: rgb(16, 185, 129);
+}
+
+.kanban-ticket-support.paid {
+  background: rgba(79, 70, 229, 0.1);
+  color: rgb(79, 70, 229);
+}
+
+.kanban-ticket-support.expired {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+}
+
+.kanban-ticket-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.kanban-ticket-engineer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.kanban-ticket-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.kanban-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+}
+
+/* === PREMIUM INPUTS & DATE PICKERS === */
+.premium-input {
+  width: 100%;
+  padding: 0.875rem 1.25rem; /* Standard padding for all inputs */
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 1.25rem !important;
+  color: var(--text-main) !important;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.premium-input:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 4px var(--primary-glow);
+}
+
+.premium-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Specific styling for Date/Datetime Native Pickers */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  position: relative;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+/* Style the calendar/clock icon */
+::-webkit-calendar-picker-indicator {
+  background-position: center;
+  background-size: contain;
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.5);
+  opacity: 0.6;
+}
+
+::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--primary-glow);
+}
+
+/* Fix for date inputs taking full width and having consistent font */
+input[type="date"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+  color: inherit;
+  font-family: inherit;
 }

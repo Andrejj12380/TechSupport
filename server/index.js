@@ -487,6 +487,142 @@ app.get('/api/tickets/analytics/frequency', authenticateToken, async (req, res) 
   }
 });
 
+app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (req, res) => {
+  try {
+    // 1. Overall monthly trend (normalized by production line implementation month)
+    const trendQuery = `
+      WITH LineStart AS (
+        SELECT 
+          pl.id as line_id, 
+          COALESCE(pl.warranty_start_date, pl.paid_support_start_date, c.warranty_start_date, c.paid_support_start_date, c.created_at::date) as start_date
+        FROM production_lines pl
+        JOIN sites s ON pl.site_id = s.id
+        JOIN clients c ON s.client_id = c.id
+      ),
+      TicketRelative AS (
+        SELECT 
+          t.line_id,
+          t.id as ticket_id,
+          t.total_work_minutes,
+          EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600 as resolution_hours,
+          (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
+           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index
+        FROM support_tickets t
+        JOIN LineStart ls ON t.line_id = ls.line_id
+        WHERE t.reported_at >= ls.start_date::timestamp with time zone
+      )
+      SELECT 
+        month_index,
+        COUNT(*) as ticket_count,
+        COUNT(DISTINCT line_id) as active_lines,
+        ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT line_id), 0), 2) as avg_tickets_per_line,
+        ROUND(AVG(resolution_hours)::numeric, 1) as avg_resolution_hours,
+        ROUND(SUM(COALESCE(total_work_minutes, 0))::numeric / NULLIF(COUNT(*), 0), 1) as avg_work_minutes
+      FROM TicketRelative
+      WHERE month_index >= 0 AND month_index <= 24
+      GROUP BY month_index
+      ORDER BY month_index ASC;
+    `;
+
+    // 2. Individual line statistics within clients
+    const lineQuery = `
+      WITH LineStart AS (
+        SELECT 
+          pl.id as line_id, 
+          pl.name as line_name, 
+          s.client_id,
+          c.name as client_name,
+          COALESCE(pl.warranty_start_date, pl.paid_support_start_date, c.warranty_start_date, c.paid_support_start_date, c.created_at::date) as start_date
+        FROM production_lines pl
+        JOIN sites s ON pl.site_id = s.id
+        JOIN clients c ON s.client_id = c.id
+      ),
+      TicketRelative AS (
+        SELECT 
+          t.line_id,
+          ls.line_name,
+          ls.client_id,
+          ls.client_name,
+          ls.start_date,
+          t.total_work_minutes,
+          t.support_line,
+          t.resolved_at,
+          EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600 as resolution_hours,
+          (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
+           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index,
+           t.reported_at
+        FROM support_tickets t
+        JOIN LineStart ls ON t.line_id = ls.line_id
+        WHERE t.reported_at >= ls.start_date::timestamp with time zone
+      )
+      SELECT 
+        line_id,
+        line_name,
+        client_id,
+        client_name,
+        start_date,
+        COUNT(*) FILTER (WHERE month_index = 0) as first_month_tickets,
+        COUNT(*) FILTER (WHERE month_index > 0) as subsequent_tickets,
+        ROUND(COUNT(*) FILTER (WHERE month_index > 0)::numeric / NULLIF(MAX(month_index), 0), 2) as subsequent_avg,
+        MAX(month_index) as months_since_start,
+        COUNT(*) FILTER (WHERE reported_at >= NOW() - INTERVAL '30 days') as last_30d_tickets,
+        ROUND(SUM(COALESCE(total_work_minutes, 0))::numeric, 0) as total_effort_mins,
+        ROUND(AVG(resolution_hours) FILTER (WHERE resolved_at IS NOT NULL)::numeric, 1) as avg_resolution_hours,
+        COUNT(*) FILTER (WHERE support_line = 3) as l3_escalations
+      FROM TicketRelative
+      GROUP BY line_id, line_name, client_id, client_name, start_date
+      ORDER BY client_name ASC, line_name ASC;
+    `;
+
+    // 3. Overall Category distribution
+    const categoryQuery = `
+      SELECT 
+        COALESCE(c.name, 'Не указано') as category_name,
+        COUNT(*) as ticket_count
+      FROM support_tickets t
+      LEFT JOIN ticket_categories c ON t.category_id = c.id
+      GROUP BY category_name
+      ORDER BY ticket_count DESC
+      LIMIT 10;
+    `;
+
+    const [trendResult, lineResult, categoryResult] = await Promise.all([
+      pool.query(trendQuery),
+      pool.query(lineQuery),
+      pool.query(categoryQuery)
+    ]);
+
+    res.json({
+      monthlyTrend: trendResult.rows.map(r => ({
+        ...r,
+        ticket_count: Number(r.ticket_count),
+        active_lines: Number(r.active_lines),
+        avg_tickets_per_line: Number(r.avg_tickets_per_line || 0),
+        avg_resolution_hours: Number(r.avg_resolution_hours || 0),
+        avg_work_minutes: Number(r.avg_work_minutes || 0)
+      })),
+      lineStats: lineResult.rows.map(r => ({
+        ...r,
+        first_month_tickets: Number(r.first_month_tickets),
+        subsequent_tickets: Number(r.subsequent_tickets),
+        subsequent_avg: Number(r.subsequent_avg || 0),
+        months_since_start: Number(r.months_since_start || 0),
+        last_30d_tickets: Number(r.last_30d_tickets),
+        total_effort_mins: Number(r.total_effort_mins || 0),
+        avg_resolution_hours: Number(r.avg_resolution_hours || 0),
+        l3_escalations: Number(r.l3_escalations)
+      })),
+      categories: categoryResult.rows.map(r => ({
+        ...r,
+        ticket_count: Number(r.ticket_count)
+      }))
+    });
+  } catch (err) {
+    console.error('Error fetching post-implementation analytics:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Test database connection
 app.get('/api/health', async (req, res) => {
   try {
