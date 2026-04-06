@@ -167,6 +167,8 @@ export interface KnowledgeBaseArticle {
   content: string;
   category: string;
   tags: string[];
+  parent_id?: number | null;
+  display_order?: number;
   created_at: string;
   updated_at: string;
   attachments?: KnowledgeBaseAttachment[];

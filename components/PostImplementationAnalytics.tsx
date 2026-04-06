@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  TrendingDown, 
-  TrendingUp, 
-  Minus, 
-  Users, 
-  Calendar, 
-  Activity, 
+import {
+  TrendingDown,
+  TrendingUp,
+  Minus,
+  Users,
+  Calendar,
+  Activity,
   ArrowLeft,
-  ChevronDown, 
-  ChevronUp, 
+  ChevronDown,
+  ChevronUp,
   AlertCircle,
   CheckCircle2,
   HelpCircle,
@@ -60,7 +60,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
 
   const groupedData = useMemo(() => {
     if (!data) return [];
-    
+
     // Group lines by client
     const groups: Record<number, {
       client_id: number;
@@ -136,11 +136,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
     const width = 800;
     const height = 300;
     const stepX = (width - padding * 2) / Math.max(trend.length - 1, 1);
-    
+
     return trend.map((t, i) => {
       const x = padding + i * stepX;
       const val = Number(t.avg_tickets_per_line || 0);
-      const y = height - padding - (val / maxTickets) * (height - padding * 2);
+      const y = (height - padding) - (val / maxTickets) * (height - padding * 2);
       return `${x},${y}`;
     }).join(' ');
   }, [data]);
@@ -154,7 +154,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
     const width = 800;
     const height = 300;
     const stepX = (width - padding * 2) / Math.max(trend.length - 1, 1);
-    
+
     return trend.map((t, i) => {
       const x = padding + i * stepX;
       const val = Number(t.avg_resolution_hours || 0);
@@ -186,7 +186,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {onBack && (
-            <button 
+            <button
               onClick={onBack}
               className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-white transition-all"
             >
@@ -285,9 +285,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
 
                   return (
                     <>
-                      Статистика показывает, что <strong>активное взаимодействие начинается с первого месяца (M0)</strong>, 
-                      когда нагрузка максимальна и составляет в среднем <strong>{m0.toFixed(1)} тикетов</strong> на линию. 
-                      Это период первичной настройки и обучения операторов «в бою».
+                      Статистика показывает, что <strong>активное взаимодействие начинается с первого месяца (M0)</strong>,
+                      когда нагрузка максимальна и составляет в среднем <strong>{m0.toFixed(1)} тикетов</strong> на линию.
+                      Это период первичной настройки и обучения операторов.
                     </>
                   );
                 })()}
@@ -302,8 +302,8 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
 
                   return (
                     <>
-                      Со 2-го по 4-й месяц (фаза адаптации) количество вопросов обычно снижается на 
-                      <strong> {reduction}%</strong>. В этот период персонал клиента перестает спрашивать 
+                      Со 2-го по 4-й месяц (фаза адаптации) количество вопросов обычно снижается на
+                      <strong> {reduction}%</strong>. В этот период персонал клиента перестает спрашивать
                       о базовых вещах и переходит к более редким, специфическим кейсам.
                     </>
                   );
@@ -319,9 +319,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
 
                   return (
                     <>
-                      После <strong>6-го месяца</strong> спрос на поддержку стабилизируется на уровне 
-                      <strong> {m6_avg.toFixed(1)} тикетов/мес</strong>. Линия переходит в режим 
-                      штатной эксплуатации, где обращения связаны преимущественно с плановым обслуживанием 
+                      После <strong>6-го месяца</strong> спрос на поддержку стабилизируется на уровне
+                      <strong> {m6_avg.toFixed(1)} тикетов/мес</strong>. Линия переходит в режим
+                      штатной эксплуатации, где обращения связаны преимущественно с плановым обслуживанием
                       или обновлением ПО.
                     </>
                   );
@@ -335,13 +335,13 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
       <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-xl font-black text-white italic uppercase tracking-tight">Тренд обращений (M0-M{data.monthlyTrend.length-1})</h2>
+            <h2 className="text-xl font-black text-white italic uppercase tracking-tight">Тренд обращений (M0-M{data.monthlyTrend.length - 1})</h2>
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Ось Y: Тикетов/мес, Ось X: Месяцы от запуска</p>
           </div>
         </div>
 
-        <div className="relative h-[300px] w-full">
-          <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300" preserveAspectRatio="none">
+        <div className="relative h-[400px] w-full max-w-5xl mx-auto">
+          <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
             {/* Grid & Y-Axis */}
             {[0, 0.5, 1].map(p => {
               const maxVal = Math.max(...data.monthlyTrend.map(t => Number(t.avg_tickets_per_line))) || 1;
@@ -354,7 +354,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                 </g>
               );
             })}
-            
+
             {chartPoints && (
               <>
                 <polyline points={chartPoints} fill="none" stroke="#FF5B00" strokeWidth="4" strokeLinecap="round" className="drop-shadow-[0_0_8px_rgba(255,91,0,0.5)]" />
@@ -373,9 +373,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                   return (
                     <g key={i} className="group/point">
                       <circle cx={px} cy={py} r="5" fill="#FF5B00" className="transition-all hover:r-8 hover:fill-white cursor-pointer" />
-                      <text 
-                        x={px} y={py - 20} 
-                        textAnchor="middle" 
+                      <text
+                        x={px} y={py - 20}
+                        textAnchor="middle"
                         className="text-[16px] fill-white font-black opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
                       >
                         {t.avg_tickets_per_line}
@@ -404,8 +404,8 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
             </div>
           </div>
 
-          <div className="relative h-[200px] w-full">
-            <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300" preserveAspectRatio="none">
+          <div className="relative h-[300px] w-full max-w-2xl mx-auto">
+            <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
               {/* Grid & Y-Axis */}
               {[0, 0.5, 1].map(p => {
                 const maxVal = Math.max(...data.monthlyTrend.map(t => Number(t.avg_resolution_hours))) || 1;
@@ -434,9 +434,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                 return (
                   <g key={i} className="group/point">
                     <circle cx={px} cy={py} r="4" fill="#10B981" />
-                    <text 
-                      x={px} y={py - 20} 
-                      textAnchor="middle" 
+                    <text
+                      x={px} y={py - 20}
+                      textAnchor="middle"
                       className="text-[16px] fill-white font-black opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
                     >
                       {t.avg_resolution_hours}ч
@@ -460,7 +460,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
               <PieChart className="w-5 h-5 text-amber-500" />
             </div>
           </div>
-          
+
           <div className="space-y-4 pt-4">
             {data.categories.slice(0, 5).map((cat, i) => {
               const maxCount = Math.max(...data.categories.map(c => c.ticket_count)) || 1;
@@ -472,7 +472,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                     <span className="text-white">{cat.ticket_count}</span>
                   </div>
                   <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-amber-500/50 rounded-full transition-all duration-1000"
                       style={{ width: `${widthPerc}%` }}
                     />
@@ -489,7 +489,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
         <div className="p-8 border-b border-white/5 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-black text-white">Производственные линии</h2>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Подробная статистика по трудозатратам и эффективности</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Подробная статистика по эффективности</p>
           </div>
           <div className="flex items-center gap-3 bg-white/5 p-1 rounded-xl border border-white/10">
             <button onClick={() => setFilterMinMonths(0)} className={`px-4 py-2 text-[9px] font-black uppercase rounded-lg transition-all ${filterMinMonths === 0 ? 'bg-[#FF5B00] text-white' : 'text-white/40 hover:text-white'}`}>Все</button>
@@ -513,11 +513,13 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                     MTTR <HelpCircle className="w-2.5 h-2.5 opacity-40" />
                   </div>
                 </th>
+                {/* Hiding Costs for now
                 <th className="px-4 py-4 text-center">
                   <div className="flex items-center justify-center gap-1" title="Сумма реально затраченного времени инженеров на работу (человеко-часы). Вводится инженером вручную в поле 'Время работы'. Если поле не заполнено, будет 0.">
                     Затраты <HelpCircle className="w-2.5 h-2.5 opacity-40" />
                   </div>
                 </th>
+                */}
                 <th className="px-4 py-4 text-center">
                   <div className="flex items-center justify-center gap-1" title="Количество эскалаций на 3-ю линию (Разработка/Инжиниринг)">
                     L3 <HelpCircle className="w-2.5 h-2.5 opacity-40" />
@@ -535,7 +537,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
               {groupedData.map(group => (
                 <React.Fragment key={group.client_id}>
                   {/* Client Row (Aggregated) */}
-                  <tr 
+                  <tr
                     onClick={() => toggleClient(group.client_id)}
                     className="group bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
                   >
@@ -556,9 +558,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                     <td className="px-4 py-6 text-center">
                       <span className="font-black text-white/50 text-sm">{group.agg.avg_resolution_hours.toFixed(1)}ч</span>
                     </td>
+                    {/* Hiding aggregated Costs for now
                     <td className="px-4 py-6 text-center">
                       <span className="font-black text-white/50 text-sm">{(group.agg.total_effort_mins / 60).toFixed(1)}ч</span>
                     </td>
+                    */}
                     <td className="px-4 py-6 text-center">
                       <span className="font-black text-white/50 text-sm">{group.agg.l3_escalations}</span>
                     </td>
@@ -566,9 +570,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                       <span className="text-[10px] font-black text-white/20 uppercase">Агрегировано</span>
                     </td>
                     <td className="px-8 py-6 text-right">
-                       <div className="flex items-center justify-end gap-2 text-white/40">
-                         {expandedClients.has(group.client_id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                       </div>
+                      <div className="flex items-center justify-end gap-2 text-white/40">
+                        {expandedClients.has(group.client_id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
                     </td>
                   </tr>
 
@@ -590,29 +594,31 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                       <td className="px-4 py-4 text-center">
                         <span className="font-bold text-white/60">{line.avg_resolution_hours.toFixed(1)}ч</span>
                       </td>
+                      {/* Hiding individual line Costs for now
                       <td className="px-4 py-4 text-center">
                         <span className="font-black text-white/60">{(line.total_effort_mins / 60).toFixed(1)}ч</span>
                       </td>
+                      */}
                       <td className="px-4 py-4 text-center">
                         <span className="font-black text-white/60">{line.l3_escalations}</span>
                       </td>
                       <td className="px-4 py-4 text-center">
                         {line.subsequent_avg < (line.first_month_tickets / 3) ? (
-                          <span 
+                          <span
                             className="flex items-center justify-center gap-1 text-[9px] font-black text-emerald-500 uppercase cursor-help"
                             title="Нагрузка снизилась более чем в 3 раза по сравнению с первым месяцем"
                           >
                             <CheckCircle2 className="w-3 h-3" /> Обучен
                           </span>
                         ) : line.subsequent_avg > line.first_month_tickets && line.first_month_tickets > 0 ? (
-                          <span 
+                          <span
                             className="flex items-center justify-center gap-1 text-[9px] font-black text-red-500 uppercase cursor-help"
                             title="Нагрузка на техподдержку сейчас выше, чем была в первый месяц внедрения"
                           >
                             <AlertCircle className="w-3 h-3" /> Проблемный
                           </span>
                         ) : (
-                          <span 
+                          <span
                             className="flex items-center justify-center gap-1 text-[9px] font-black text-amber-500 uppercase cursor-help"
                             title="Процесс обучения персонала продолжается, спрос на поддержку умеренный"
                           >

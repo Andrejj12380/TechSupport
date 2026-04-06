@@ -372,12 +372,6 @@ body {
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
 }
 
-/* Remove literal backticks added by Tailwind Typography for inline code */
-.prose code::before,
-.prose code::after {
-  content: none !important;
-}
-
 /* Tab transition animation */
 @keyframes fadeIn {
   from {
@@ -751,4 +745,228 @@ input[type="date"]::-webkit-datetime-edit,
 input[type="datetime-local"]::-webkit-datetime-edit {
   color: inherit;
   font-family: inherit;
+}
+
+/* === TIPTAP EDITOR STYLES === */
+.ProseMirror {
+  outline: none !important;
+  padding: 0 !important;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-muted);
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+  opacity: 0.5;
+}
+
+.ProseMirror h1 {
+  font-size: 2.5rem;
+  font-weight: 900;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.ProseMirror h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ProseMirror h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid var(--primary);
+  padding-left: 1.25rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.ProseMirror pre {
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  margin: 1.5rem 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+
+.ProseMirror code {
+  background: rgba(255, 91, 0, 0.1);
+  color: var(--primary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.4rem;
+  font-size: 0.9em;
+}
+
+.ProseMirror pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* Syntax Highlighting for Editor */
+.hljs-comment, .hljs-quote { color: #6a9955; }
+.hljs-keyword, .hljs-selector-tag { color: #569cd6; }
+.hljs-string, .hljs-doctag, .hljs-regexp, .hljs-addition { color: #ce9178; }
+.hljs-title, .hljs-section, .hljs-type, .hljs-name { color: #dcdcaa; }
+.hljs-variable, .hljs-template-variable, .hljs-tag, .hljs-attr { color: #9cdcfe; }
+
+/* Tiptap Details extension styles */
+.details-block {
+  margin: 1.5rem 0;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  transition: all 0.2s ease;
+}
+
+.details-block:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.details-block summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  outline: none;
+  padding: 0.25rem;
+  color: var(--text-main);
+}
+
+.details-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.details-block summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--primary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.details-block[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.details-content {
+  padding: 1rem 0.5rem 0.5rem 1.75rem;
+  border-top: 1px dotted var(--border-subtle);
+  margin-top: 0.75rem;
+}/* === TIPTAP EDITOR SPECIFIC STYLES FOR DETAILS === */
+/* In the editor, Details extension uses a custom NodeView structure */.ProseMirror .details-block {
+  position: relative;
+  padding-left: 0 !important; 
+}
+
+/* Hide the native summary pseudo-triangle in the editor to avoid double icons */
+.ProseMirror .details-block summary::before {
+  display: none !important;
+}
+
+/* Ensure the editor-only toggle button is correctly positioned */
+.ProseMirror .details-toggle-button {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.75rem;
+  width: 24px;
+  height: 24px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  z-index: 30; /* Ensure it's above everything */
+}
+
+/* The triangle inside the button in the editor */
+.ProseMirror .details-toggle-button span {
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--primary);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+/* Handle rotation based on the is-open class on the parent */
+.ProseMirror .details-block.is-open > .details-toggle-button span {
+  transform: rotate(90deg);
+}
+
+/* Style the content area in the editor */
+.ProseMirror .details-content {
+  display: none !important; /* Default hidden in editor via CSS */
+  padding: 1rem 0.5rem 0.5rem 3rem !important; /* Increased padding to 3rem */
+  border-top: 1px dotted var(--border-subtle);
+  margin-top: 0.75rem;
+}
+
+/* FORCE SHOW content when parent has is-open class */
+.ProseMirror .details-block.is-open > .details-content,
+.ProseMirror .details-block.is-open .details-content {
+  display: block !important;
+  min-height: 24px;
+  visibility: visible !important;
+}
+
+/* Style the summary (header) in the editor */
+.ProseMirror .details-summary {
+  font-weight: 700 !important;
+  color: var(--text-main) !important;
+  display: block !important;
+  min-height: 1.5rem !important;
+  padding: 0.5rem 0 0.5rem 3rem !important; /* Increased padding to 3rem */
+  cursor: text !important;
+}
+
+/* Native/View mode styles using classes too for consistency */
+details.details-block > .details-summary::before {
+  content: '';
+  display: inline-block;
+  margin-right: 0.75rem;
+}
+
+.details-content {
+  padding: 1rem 0.5rem 0.5rem 1.75rem;
+  border-top: 1px dotted var(--border-subtle);
+  margin-top: 0.75rem;
 }

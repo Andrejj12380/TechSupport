@@ -12,6 +12,26 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
+async function ensureKbSchema(pool) {
+  try {
+    // Add parent_id for nesting
+    const parentIdRes = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'knowledge_base' AND column_name = 'parent_id'");
+    if (parentIdRes.rows.length === 0) {
+      await pool.query('ALTER TABLE knowledge_base ADD COLUMN parent_id INTEGER REFERENCES knowledge_base(id) ON DELETE CASCADE');
+      console.log('Applied migration: added knowledge_base.parent_id');
+    }
+
+    // Add display_order for custom sorting
+    const orderRes = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'knowledge_base' AND column_name = 'display_order'");
+    if (orderRes.rows.length === 0) {
+      await pool.query('ALTER TABLE knowledge_base ADD COLUMN display_order INTEGER DEFAULT 0');
+      console.log('Applied migration: added knowledge_base.display_order');
+    }
+  } catch (err) {
+    console.error('Error ensuring KB schema:', err);
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -1605,7 +1625,7 @@ app.get('/api/logs', async (req, res) => {
 // Knowledge Base endpoints
 app.get('/api/kb', async (req, res) => {
   try {
-    const { category, tag, q } = req.query;
+    const { category, tag, q, parent_id, tree } = req.query;
     let query = 'SELECT * FROM knowledge_base';
     const params = [];
     const conditions = [];
@@ -1625,11 +1645,20 @@ app.get('/api/kb', async (req, res) => {
       conditions.push(`(title ILIKE $${params.length} OR content ILIKE $${params.length})`);
     }
 
+    if (parent_id !== undefined) {
+      if (parent_id === 'null' || parent_id === null) {
+        conditions.push('parent_id IS NULL');
+      } else {
+        params.push(parent_id);
+        conditions.push(`parent_id = $${params.length}`);
+      }
+    }
+
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY display_order ASC, created_at DESC';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -1654,10 +1683,10 @@ app.get('/api/kb/:id', async (req, res) => {
 app.post('/api/kb', authenticateToken, async (req, res) => {
   try {
     if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
-    const { title, content, category, tags } = req.body;
+    const { title, content, category, tags, parent_id, display_order } = req.body;
     const result = await pool.query(
-      'INSERT INTO knowledge_base (title, content, category, tags) VALUES ($1, $2, $3, $4) RETURNING *',
-      [title, content, category, tags]
+      'INSERT INTO knowledge_base (title, content, category, tags, parent_id, display_order) VALUES ($1, $2, $3, $4, $5, COALESCE($6, 0)) RETURNING *',
+      [title, content, category, tags, parent_id || null, display_order]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -1669,10 +1698,10 @@ app.put('/api/kb/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.role === 'viewer') return res.status(403).json({ error: 'Access denied' });
     const { id } = req.params;
-    const { title, content, category, tags } = req.body;
+    const { title, content, category, tags, parent_id, display_order } = req.body;
     const result = await pool.query(
-      'UPDATE knowledge_base SET title = $1, content = $2, category = $3, tags = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [title, content, category, tags, id]
+      'UPDATE knowledge_base SET title = $1, content = $2, category = $3, tags = $4, parent_id = $5, display_order = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+      [title, content, category, tags, parent_id || null, display_order, id]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -2242,6 +2271,7 @@ ensureTicketCategories()
   .then(() => ensureTicketStatusMigration())
   .then(() => ensureSupportTicketStatusConstraint())
   .then(() => ensureCameraPresets())
+  .then(() => ensureKbSchema(pool))
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

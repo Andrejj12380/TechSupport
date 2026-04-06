@@ -502,12 +502,14 @@ class ApiService {
   }
 
   // Knowledge Base
-  async getKbArticles(category?: string, tag?: string, query?: string): Promise<any[]> {
-    let url = '/kb?';
-    if (category) url += `category=${encodeURIComponent(category)}&`;
-    if (tag) url += `tag=${encodeURIComponent(tag)}&`;
-    if (query) url += `q=${encodeURIComponent(query)}`;
-    return this.request(url);
+  async getKbArticles(category?: string, tag?: string, query?: string, parent_id?: number | 'null'): Promise<KnowledgeBaseArticle[]> {
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    if (tag) params.append('tag', tag);
+    if (query) params.append('q', query);
+    if (parent_id !== undefined) params.append('parent_id', String(parent_id));
+    
+    return this.request(`/kb?${params.toString()}`);
   }
 
   async getKbArticle(id: number): Promise<any> {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -6,6 +6,10 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { api } from '../services/api';
 import { KnowledgeBaseArticle, KnowledgeBaseAttachment, User } from '../types';
 import { useToast } from './Toast';
+import NotionEditor from './NotionEditor';
+import KBTree from './KBTree';
+import KBToC from './KBToC';
+
 import {
     Search,
     Book,
@@ -22,8 +26,11 @@ import {
     Clock,
     Tag as TagIcon,
     ChevronLeft,
-    AlertTriangle
+    AlertTriangle,
+    ChevronRight,
+    PlusCircle
 } from 'lucide-react';
+
 
 interface KnowledgeBaseProps {
     user: User;
@@ -38,12 +45,18 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     const [selectedArticle, setSelectedArticle] = useState<KnowledgeBaseArticle | null>(null);
     const [attachments, setAttachments] = useState<KnowledgeBaseAttachment[]>([]);
     const [isEditing, setIsEditing] = useState(false);
-    const [isPreview, setIsPreview] = useState(false);
-    const [editForm, setEditForm] = useState({ title: '', content: '', category: '', tags: '' });
+    const [editForm, setEditForm] = useState({ 
+        title: '', 
+        content: '', 
+        category: '', 
+        tags: '', 
+        parent_id: null as number | null 
+    });
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deletingArticleId, setDeletingArticleId] = useState<number | null>(null);
+
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -130,14 +143,26 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
     const handleCreateNew = () => {
         const draft = loadDraft();
         if (draft && (draft.title || draft.content)) {
-            setEditForm(draft);
+            setEditForm({ ...draft, parent_id: null });
             showToast('Черновик восстановлен', 'info');
         } else {
-            setEditForm({ title: '', content: '', category: '', tags: '' });
+            setEditForm({ title: '', content: '', category: '', tags: '', parent_id: null });
         }
         setSelectedArticle(null);
         setIsEditing(true);
-        setIsPreview(false);
+    };
+
+    const handleAddSubPage = (parentId: number) => {
+        const parentArticle = articles.find(a => a.id === parentId);
+        setEditForm({ 
+            title: '', 
+            content: '', 
+            category: parentArticle?.category || '', 
+            tags: '', 
+            parent_id: parentId 
+        });
+        setSelectedArticle(null);
+        setIsEditing(true);
     };
 
     const handleEdit = (article: KnowledgeBaseArticle) => {
@@ -146,11 +171,12 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
             content: article.content,
             category: article.category || '',
             tags: article.tags ? article.tags.join(', ') : '',
+            parent_id: article.parent_id || null,
         });
         setSelectedArticle(article);
         setIsEditing(true);
-        setIsPreview(false);
     };
+
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -293,59 +319,35 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
                     {loading ? (
                         <div className="space-y-3 p-1">
                             {[1, 2, 3, 4, 5].map(i => (
-                                <div key={i} className="p-4 rounded-xl border border-white/10/50 bg-slate-50/50 bg-white/5 animate-pulse">
-                                    <div className="h-4 bg-slate-200 bg-white/10 rounded w-3/4 mb-2"></div>
-                                    <div className="flex gap-2">
-                                        <div className="h-3 bg-white/10 rounded w-1/4"></div>
-                                        <div className="h-3 bg-white/10 rounded w-1/4"></div>
-                                    </div>
+                                <div key={i} className="p-4 rounded-xl border border-white/10 bg-white/5 animate-pulse">
+                                    <div className="h-4 bg-white/10 rounded w-3/4 mb-2"></div>
+                                    <div className="h-3 bg-white/10 rounded w-1/4"></div>
                                 </div>
                             ))}
                         </div>
                     ) : articles.length === 0 ? (
                         <div className="text-center py-12 px-4">
-                            <FileText className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                            <p className="text-sm text-slate-500">Статей пока нет</p>
+                            <FileText className="w-12 h-12 text-white/10 mx-auto mb-3" />
+                            <p className="text-sm text-white/40">Статей пока нет</p>
                         </div>
                     ) : (
-                        articles.map(article => (
-                            <div
-                                key={article.id}
-                                onClick={() => {
-                                    setSelectedArticle(article);
-                                    setIsEditing(false);
-                                }}
-                                className={`group p-3 rounded-xl cursor-pointer transition-all border ${selectedArticle?.id === article.id
-                                    ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-500/30 shadow-sm'
-                                    : 'hover:bg-white/10/50 border-transparent'
-                                    }`}
-                            >
-                                <h3 className={`font-semibold text-sm mb-1 truncate ${selectedArticle?.id === article.id ? 'text-primary' : 'text-slate-800 dark:text-white'}`}>
-                                    {article.title}
-                                </h3>
-                                <div className="flex items-center gap-3 text-[11px] text-slate-500 text-white/70">
-                                    {article.category && (
-                                        <span
-                                            onClick={(e) => handleCategoryClick(e, article.category!)}
-                                            className="flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                                        >
-                                            <TagIcon className="w-3 h-3" />
-                                            {article.category}
-                                        </span>
-                                    )}
-                                    <span className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {new Date(article.created_at).toLocaleDateString()}
-                                    </span>
-                                </div>
-                            </div>
-                        ))
+                        <KBTree
+                            articles={articles}
+                            parentId={null}
+                            selectedId={selectedArticle?.id || null}
+                            onSelect={(article) => {
+                                setSelectedArticle(article);
+                                setIsEditing(false);
+                            }}
+                            onAddSubPage={handleAddSubPage}
+                        />
                     )}
                 </div>
+
             </div>
 
             {/* Main Content Area */}
@@ -359,26 +361,17 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                         <p className="max-w-xs text-sm">Используйте поиск слева или создайте новую статью для базы знаний.</p>
                     </div>
                 ) : isEditing ? (
-                    /* Notion-style Editor */
                     <div className="flex-1 flex flex-col h-full overflow-hidden">
-                        <div className="p-4 border-b border-white/10 flex justify-between items-center glass-card sticky top-0 z-10">
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center glass-card sticky top-0 z-10 rounded-none">
                             <div className="flex items-center gap-4">
-                                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-slate-100 rounded-lg lg:hidden">
-                                    <ChevronLeft className="w-5 h-5 text-slate-500" />
+                                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-white/10 rounded-lg lg:hidden">
+                                    <ChevronLeft className="w-5 h-5 text-white/50" />
                                 </button>
-                                <h3 className="font-bold text-slate-800">
-                                    {selectedArticle ? 'Редактирование' : 'Новое руководство'}
+                                <h3 className="font-bold text-white">
+                                    {selectedArticle ? 'Редактирование' : editForm.parent_id ? 'Новая подстраница' : 'Новое руководство'}
                                 </h3>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setIsPreview(!isPreview)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isPreview ? 'bg-orange-50 dark:bg-orange-900/20 text-primary' : 'hover:bg-white/10 text-slate-600 text-white/70'
-                                        }`}
-                                >
-                                    {isPreview ? <Code className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    {isPreview ? 'Редактор' : 'Предпросмотр'}
-                                </button>
                                 <button
                                     onClick={handleSave}
                                     className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#e05000] shadow-lg shadow-primary/20 transition-all text-sm"
@@ -388,134 +381,102 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
-                            <div className="space-y-6">
+                        <div className="flex-1 overflow-y-auto px-4 lg:px-8 pt-2 pb-8 custom-scrollbar">
+                            <div className="max-w-4xl mx-auto space-y-6">
                                 <input
                                     type="text"
-                                    placeholder="Заголовок статьи..."
+                                    placeholder="Заголовок страницы..."
                                     value={editForm.title}
                                     onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                                    className="w-full text-4xl font-black text-white placeholder:text-slate-200 dark:placeholder:text-slate-700 bg-transparent border-none outline-none focus:ring-0 p-0"
+                                    className="w-full text-5xl font-black text-white placeholder:text-white/10 bg-transparent border-none outline-none focus:ring-0 p-0"
                                 />
 
-                                <div className="flex gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1">Категория</label>
+                                <div className="flex flex-wrap gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                    <div className="flex-1 min-w-[200px] space-y-1">
+                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+                                            <TagIcon className="w-3 h-3 text-primary" />
+                                            Категория
+                                        </label>
                                         <input
                                             type="text"
                                             value={editForm.category}
                                             onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-slate-800 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 p-0"
+                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-white placeholder:text-white/20 p-0"
                                             placeholder="Напр. Настройка VPN"
                                         />
                                     </div>
-                                    <div className="w-[1px] bg-slate-200 bg-white/10 my-1" />
-                                    <div className="flex-1 space-y-1">
-                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1">Теги</label>
+                                    <div className="hidden lg:block w-[1px] bg-white/10 my-1" />
+                                    <div className="flex-1 min-w-[200px] space-y-1">
+                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+                                            <TagIcon className="w-3 h-3 text-primary" />
+                                            Теги
+                                        </label>
                                         <input
                                             type="text"
                                             value={editForm.tags}
                                             onChange={e => setEditForm({ ...editForm, tags: e.target.value })}
-                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-slate-800 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 p-0"
+                                            className="w-full bg-transparent border-none outline-none text-sm font-medium text-white placeholder:text-white/20 p-0"
                                             placeholder="тэги через запятую..."
                                         />
                                     </div>
                                 </div>
 
-                                {isPreview ? (
-                                    <div className="prose prose-slate dark:prose-invert max-w-none min-h-[500px] border-t border-white/10 pt-6 prose-headings:font-black prose-h1:text-4xl prose-h2:text-2xl prose-h3:text-xl prose-h4:text-lg prose-img:rounded-2xl">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                            components={{
-                                                code(props) {
-                                                    const { children, className, node, ref, ...rest } = props
-                                                    const match = /language-(\w+)/.exec(className || '')
-                                                    return match ? (
-                                                        <SyntaxHighlighter
-                                                            {...rest as any}
-                                                            PreTag="div"
-                                                            children={String(children).replace(/\n$/, '')}
-                                                            language={match[1]}
-                                                            style={vscDarkPlus as any}
-                                                            className="rounded-xl !my-4 !bg-[#1E1E1E]"
-                                                        />
-                                                    ) : (
-                                                        <code {...rest as any} className={className}>
-                                                            {children}
-                                                        </code>
-                                                    )
-                                                }
-                                            }}
-                                        >
-                                            {editForm.content || '*Начните писать, чтобы увидеть предпросмотр...*'}
-                                        </ReactMarkdown>
-                                    </div>
-                                ) : (
-                                    <textarea
-                                        value={editForm.content}
-                                        onChange={e => setEditForm({ ...editForm, content: e.target.value })}
-                                        className="w-full min-h-[600px] text-lg text-white placeholder:text-slate-200 dark:placeholder:text-slate-700 bg-transparent border-none outline-none focus:ring-0 p-0 font-mono resize-none"
-                                        placeholder="Начните писать контент в формате Markdown..."
+                                <div className="border-t border-white/10 pt-6">
+                                    <NotionEditor 
+                                        content={editForm.content} 
+                                        onChange={(html) => setEditForm({ ...editForm, content: html })}
+                                        placeholder="Начните писать здесь... Нажмите '/' для команд"
                                     />
-                                )}
+                                </div>
+
                             </div>
                         </div>
                     </div>
-                ) : (
-                    /* Read Mode with Attachments */
-                    <div className="flex-1 flex flex-col h-full overflow-hidden">
-                        <div className="p-4 border-b border-white/10 flex justify-between items-center glass-card sticky top-0 z-10">
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-white/10 rounded-lg lg:hidden">
-                                    <ChevronLeft className="w-5 h-5 text-white/50" />
-                                </button>
-                                <h3 className="font-bold text-slate-800 text-white">
-                                    База знаний → {selectedArticle?.category || 'Общее'}
-                                </h3>
-                            </div>
-                            {isEngineer && selectedArticle && (
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleEdit(selectedArticle)}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-white/50 hover:text-primary hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-all text-sm font-semibold"
-                                    >
-                                        <Edit className="w-4 h-4" />
-                                        <span>Редактировать</span>
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setDeletingArticleId(selectedArticle.id);
-                                            setDeleteModalOpen(true);
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all text-sm font-semibold"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                        <span>Удалить</span>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
 
-                        <div className="flex-1 overflow-y-auto px-8 py-12">
-                            <div className="max-w-4xl mx-auto space-y-12">
+                ) : (
+                    <div className="flex-1 flex overflow-hidden lg:flex-row flex-col">
+                        <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-12 custom-scrollbar">
+                            <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
                                 {selectedArticle && (
                                     <>
-                                        <div>
-                                            <h1 className="text-5xl font-black text-white mb-6 leading-tight">{selectedArticle.title}</h1>
+                                        {/* Action Bar */}
+                                        {isEngineer && (
+                                            <div className="flex justify-end items-center gap-2 mb-8 bg-white/5 p-2 rounded-2xl border border-white/10 glass-card">
+                                                <button
+                                                    onClick={() => handleEdit(selectedArticle)}
+                                                    className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 text-white/70 hover:text-white rounded-xl transition-all text-sm font-bold border border-transparent hover:border-white/10"
+                                                >
+                                                    <Edit className="w-4 h-4 text-primary" />
+                                                    Редактировать
+                                                </button>
+                                                <div className="w-[1px] h-4 bg-white/10 mx-1" />
+                                                <button
+                                                    onClick={() => {
+                                                        setDeletingArticleId(selectedArticle.id);
+                                                        setDeleteModalOpen(true);
+                                                    }}
+                                                    className="flex items-center gap-2 px-4 py-2 hover:bg-red-500/10 text-white/70 hover:text-red-500 rounded-xl transition-all text-sm font-bold border border-transparent hover:border-red-500/10"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Удалить
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-6">
+                                            <h1 className="text-6xl font-black text-white leading-tight tracking-tight">{selectedArticle.title}</h1>
                                             <div className="flex flex-wrap gap-4 items-center text-xs">
                                                 {selectedArticle.category && (
                                                     <div
                                                         onClick={(e) => handleCategoryClick(e, selectedArticle.category!)}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-full text-slate-600 text-white/70 font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 text-orange-500 rounded-lg font-bold uppercase tracking-wider cursor-pointer hover:bg-orange-500/20 transition-colors"
                                                     >
                                                         <TagIcon className="w-3 h-3" />
                                                         {selectedArticle.category}
                                                     </div>
                                                 )}
 
-                                                {selectedArticle.category && <div className="h-4 w-[1px] bg-slate-200" />}
-
-                                                <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+                                                <div className="flex items-center gap-1.5 text-white/40 font-medium">
                                                     <Clock className="w-3.5 h-3.5" />
                                                     {new Date(selectedArticle.created_at).toLocaleDateString()}
                                                 </div>
@@ -524,7 +485,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                                         <span
                                                             key={i}
                                                             onClick={(e) => handleTagClick(e, tag)}
-                                                            className="text-primary font-bold hover:underline cursor-pointer"
+                                                            className="text-white/60 hover:text-primary transition-colors cursor-pointer"
                                                         >
                                                             #{tag}
                                                         </span>
@@ -533,40 +494,18 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                             </div>
                                         </div>
 
-                                        <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-black prose-h1:text-5xl prose-h2:text-3xl prose-h3:text-2xl prose-h4:text-xl prose-a:text-primary text-white/70 leading-relaxed text-lg pb-12 prose-img:rounded-2xl prose-img:shadow-xl">
-                                            <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                components={{
-                                                    code(props) {
-                                                        const { children, className, node, ref, ...rest } = props
-                                                        const match = /language-(\w+)/.exec(className || '')
-                                                        return match ? (
-                                                            <SyntaxHighlighter
-                                                                {...rest as any}
-                                                                PreTag="div"
-                                                                children={String(children).replace(/\n$/, '')}
-                                                                language={match[1]}
-                                                                style={vscDarkPlus as any}
-                                                                className="rounded-xl !my-4 !bg-[#1E1E1E]"
-                                                            />
-                                                        ) : (
-                                                            <code {...rest as any} className={className}>
-                                                                {children}
-                                                            </code>
-                                                        )
-                                                    }
-                                                }}
-                                            >
-                                                {selectedArticle.content}
-                                            </ReactMarkdown>
-                                        </div>
+                                        <div 
+                                            className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-black prose-headings:text-white prose-a:text-primary text-white/80 leading-relaxed pb-12"
+                                            dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
+                                        />
+
 
                                         {/* Attachments Section */}
-                                        <div className="border-t border-white/10 pt-10">
+                                        <div className="border-t border-white/10 pt-10 pb-20">
                                             <div className="flex justify-between items-center mb-6">
-                                                <h3 className="text-lg font-black text-slate-800 text-white flex items-center gap-2">
+                                                <h3 className="text-lg font-black text-white flex items-center gap-2">
                                                     <Paperclip className="w-5 h-5 text-primary" />
-                                                    Вложенные файлы ({attachments.length})
+                                                    Вложения ({attachments.length})
                                                 </h3>
                                                 {isEngineer && (
                                                     <div className="relative">
@@ -579,41 +518,39 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                                         <button
                                                             onClick={() => fileInputRef.current?.click()}
                                                             disabled={uploading}
-                                                            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all text-sm font-bold shadow-lg shadow-slate-200 disabled:opacity-50"
+                                                            className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all text-sm font-bold shadow-xl disabled:opacity-50"
                                                         >
                                                             {uploading ? (
                                                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                            ) : <Plus className="w-4 h-4" />}
-                                                            {uploading ? 'Загрузка...' : 'Добавить файл'}
+                                                            ) : <PlusCircle className="w-4 h-4" />}
+                                                            {uploading ? 'Загрузка...' : 'Файл'}
                                                         </button>
                                                     </div>
                                                 )}
                                             </div>
 
                                             {attachments.length === 0 ? (
-                                                <div className="p-8 bg-white/5/50 rounded-2xl border-2 border-dashed border-white/10 text-center text-slate-400 text-sm">
-                                                    Файлы не прикреплены ко вкладу
+                                                <div className="p-8 bg-white/5 rounded-2xl border border-dashed border-white/10 text-center text-white/20 text-sm">
+                                                    Файлы не прикреплены
                                                 </div>
                                             ) : (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {attachments.map(file => (
-                                                        <div key={file.id} className="group p-4 glass-card border border-white/10 rounded-2xl flex items-center gap-4 hover:border-primary/50 hover:shadow-xl hover:shadow-slate-100 dark:hover:shadow-black/20 transition-all">
-                                                            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-orange-50 dark:group-hover:bg-orange-900/20 group-hover:text-primary transition-colors">
+                                                        <div key={file.id} className="group p-4 glass-card border border-white/10 rounded-2xl flex items-center gap-4 hover:border-primary/50 transition-all">
+                                                            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-white/20 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                                                 <FileText className="w-6 h-6" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="font-bold text-slate-800 text-white truncate text-sm">{file.original_name}</div>
-                                                                <div className="text-[11px] text-slate-400 font-medium">
-                                                                    <span className="text-white/40 font-bold">
-                                                                        {formatSize(file.size_bytes)} • {new Date(file.created_at).toLocaleDateString('ru-RU')}
-                                                                    </span>
+                                                                <div className="font-bold text-white truncate text-sm">{file.original_name}</div>
+                                                                <div className="text-[10px] text-white/30 font-bold uppercase tracking-wider">
+                                                                    {formatSize(file.size_bytes)} • {new Date(file.created_at).toLocaleDateString('ru-RU')}
                                                                 </div>
                                                             </div>
                                                             <div className="flex gap-1">
                                                                 <a
                                                                     href={`http://localhost:5002/uploads/kb/${file.filename}`}
                                                                     target="_blank"
-                                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                                    className="p-2 text-white/20 hover:text-primary transition-all"
                                                                     title="Открыть/Скачать"
                                                                 >
                                                                     <ExternalLink className="w-4 h-4" />
@@ -621,7 +558,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                                                 {isEngineer && (
                                                                     <button
                                                                         onClick={() => handleDeleteAttachment(file.id)}
-                                                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                                        className="p-2 text-white/20 hover:text-red-500 transition-all"
                                                                         title="Удалить"
                                                                     >
                                                                         <Trash2 className="w-4 h-4" />
@@ -637,7 +574,15 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ user }) => {
                                 )}
                             </div>
                         </div>
+
+                        {/* Table of Contents Sidebar */}
+                        {selectedArticle && !isEditing && (
+                            <KBToC content={selectedArticle.content} />
+                        )}
                     </div>
+
+
+
                 )}
             </div>
             {/* Delete Confirmation Modal */}

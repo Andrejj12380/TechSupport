@@ -272,10 +272,19 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
     // Effect to handle deep linking to a specific ticket
     useEffect(() => {
-        if (!isLoading && tickets.length > 0) {
+        if (!isLoading) {
             const params = new URLSearchParams(window.location.search);
             const ticketId = params.get('ticketId');
-            if (ticketId) {
+            const newTicket = params.get('newTicket');
+
+            if (newTicket === 'true') {
+                resetForm();
+                setIsModalOpen(true);
+                // Clean up URL
+                const url = new URL(window.location.href);
+                url.searchParams.delete('newTicket');
+                window.history.replaceState({ tab: 'tickets' }, '', url.toString());
+            } else if (ticketId && tickets.length > 0) {
                 const ticket = tickets.find(t => t.id === parseInt(ticketId));
                 if (ticket) {
                     openEditModal(ticket);
@@ -1020,6 +1029,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                 </div>
                                             </div>
 
+                                            {/* Hiding Start/Stop/Pause buttons for now
                                             {isAuthorized && !['paid', 'warranty'].includes(getTicketSupportStatus(ticket).status) && (
                                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                     {ticket.work_started_at ? (
@@ -1050,6 +1060,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                     )}
                                                 </div>
                                             )}
+                                            */}
                                         </div>
                                     </td>
                                     <td className="absolute top-2 right-2 md:static block md:table-cell px-0 py-0 md:px-4 md:py-5 text-center border-none">

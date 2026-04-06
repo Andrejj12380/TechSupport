@@ -101,9 +101,17 @@ const App: React.FC = () => {
     window.addEventListener('popstate', onPop);
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'q' || e.key === 'й' || e.code === 'KeyQ')) {
         e.preventDefault();
         setIsCommandPaletteOpen(true);
+      }
+
+      // Alt+N for New Ticket (independent of layout)
+      if (e.altKey && (e.key === 'n' || e.key === 'т' || e.code === 'KeyN')) {
+        if (user && (user.role === 'admin' || user.role === 'engineer')) {
+          e.preventDefault();
+          handleNavigate('tickets', { newTicket: 'true' });
+        }
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -458,7 +466,7 @@ const App: React.FC = () => {
               <span className="text-sm font-medium flex-1 text-left">Поиск...</span>
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-lg shadow-sm border border-white/10">
                 <Command className="w-3 h-3 text-white/50" />
-                <span className="text-[10px] font-black text-white/50">K</span>
+                <span className="text-[10px] font-black text-white/50">Q</span>
               </div>
             </button>
 

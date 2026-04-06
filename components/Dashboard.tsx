@@ -589,7 +589,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 <div className="flex items-center justify-center p-4">
                   <div className="relative w-56 h-56 group">
                     {pieTotal > 0 ? (
-                      <svg viewBox="-1 -1 2 2" className="w-56 h-56 transform -rotate-0 drop-shadow-2xl">
+                      <svg viewBox="-1.1 -1.1 2.2 2.2" className="w-56 h-56 transform -rotate-0 drop-shadow-2xl overflow-visible">
                         {paths.map((slice: any) => (
                           <path
                             key={slice.category.category_id}

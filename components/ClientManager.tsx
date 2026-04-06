@@ -1001,9 +1001,17 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                           onClick={() => handleLineSelect(line)}
                           className="glass-card p-6 rounded-[2rem] border border-white/5 hover:border-[#FF5B00]/50 transition-all text-left group glass-card-hover"
                         >
-                          <div className="space-y-1 relative z-10">
-                            <h4 className="font-black text-white text-lg group-hover:text-[#FF5B00] transition-colors">{line.name}</h4>
-                            <p className="text-[10px] text-white/50 uppercase tracking-widest font-black">Шкаф: {line.cabinet_number || 'Не указан'}</p>
+                          <div className="space-y-1 relative z-10 flex items-start justify-between">
+                            <div>
+                              <h4 className="font-black text-white text-lg group-hover:text-[#FF5B00] transition-colors flex items-center gap-2">
+                                {line.name}
+                                <span
+                                  title={getLineStatus(line, currentNow).tooltip}
+                                  className={`w-2.5 h-2.5 rounded-full ring-2 ring-white/10 ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(line, currentNow).status) ? 'bg-emerald-400' : getLineStatus(line, currentNow).status === 'expired' ? 'bg-red-400' : 'bg-slate-500'}`}
+                                ></span>
+                              </h4>
+                              <p className="text-[10px] text-white/50 uppercase tracking-widest font-black">Шкаф: {line.cabinet_number || 'Не указан'}</p>
+                            </div>
                           </div>
                           <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4 relative z-10">
                             <div className="flex items-center gap-2">
@@ -1019,22 +1027,9 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                   )}
                                 </>
                               )}
-                              <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Линия</div>
                             </div>
                           </div>
-                          <h4 className="font-bold text-slate-900 dark:text-slate-100 mb-2 group-hover:text-[#FF5B00] transition-colors flex items-center flex-wrap gap-2">
-                            {line.name}
-                            {line.cabinet_number && (
-                              <span className="text-[10px] font-black text-[#FF5B00] bg-orange-50 dark:bg-orange-400/10 border border-orange-100 dark:border-orange-400/20 px-2 py-0.5 rounded-lg">
-                                {line.cabinet_number}
-                              </span>
-                            )}
-                            <span
-                              title={getLineStatus(line, currentNow).tooltip}
-                              className={`w-2 h-2 rounded-full ${['paid', 'warranty', 'warranty_only'].includes(getLineStatus(line, currentNow).status) ? 'bg-emerald-400' : getLineStatus(line, currentNow).status === 'expired' ? 'bg-red-400' : 'bg-slate-200 dark:bg-slate-700'}`}
-                            ></span>
-                          </h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{line.description || 'Нет описания'}</p>
+                          <p className="text-xs text-white/40 line-clamp-2 mt-2">{line.description || 'Нет описания'}</p>
                         </button>
                       ))}
                     </div>
@@ -1727,6 +1722,10 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Номер шкафа управления</label>
                   <input name="cabinet_number" defaultValue={modal.data?.cabinet_number} placeholder="Напр. ШУ-1" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Краткое описание (для карточки)</label>
+                  <textarea name="description" defaultValue={modal.data?.description} placeholder="Напр. Линия ПЭТ 0.5-2.0л, 6000 бут/час..." className={inputClass} style={{ minHeight: '60px' }} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Монтажные особенности</label>
