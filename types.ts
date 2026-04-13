@@ -283,3 +283,12 @@ export interface PostImplementationAnalytics {
     ticket_count: number;
   }[];
 }
+
+export interface AnalyticsDrilldownTicket {
+  id: number;
+  problem_description: string;
+  reported_at: string;
+  client_name: string;
+  line_name: string;
+  category_name: string;
+}

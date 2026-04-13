@@ -16,10 +16,11 @@ import {
   Filter,
   Factory,
   Clock,
-  PieChart
+  PieChart,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
-import { PostImplementationAnalytics as AnalyticsType } from '../types';
+import { PostImplementationAnalytics as AnalyticsType, AnalyticsDrilldownTicket } from '../types';
 
 interface PostImplementationAnalyticsProps {
   onBack?: () => void;
@@ -31,6 +32,22 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
   const [error, setError] = useState<string | null>(null);
   const [filterMinMonths, setFilterMinMonths] = useState(0);
   const [expandedClients, setExpandedClients] = useState<Set<number>>(new Set());
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [drilldownTickets, setDrilldownTickets] = useState<AnalyticsDrilldownTicket[]>([]);
+  const [isDrilldownLoading, setIsDrilldownLoading] = useState(false);
+
+  const fetchDrilldown = async (monthIndex: number) => {
+    try {
+      setSelectedMonth(monthIndex);
+      setIsDrilldownLoading(true);
+      const tickets = await api.getPostImplementationDrilldown(monthIndex);
+      setDrilldownTickets(tickets);
+    } catch (err: any) {
+      console.error('Error fetching drilldown:', err);
+    } finally {
+      setIsDrilldownLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -372,7 +389,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                   const [px, py] = points[i].split(',').map(Number);
                   return (
                     <g key={i} className="group/point">
-                      <circle cx={px} cy={py} r="5" fill="#FF5B00" className="transition-all hover:r-8 hover:fill-white cursor-pointer" />
+                      <circle 
+                        cx={px} cy={py} r="5" fill="#FF5B00" 
+                        className="transition-all hover:r-8 hover:fill-white cursor-pointer" 
+                        onClick={() => fetchDrilldown(t.month_index)}
+                      />
                       <text
                         x={px} y={py - 20}
                         textAnchor="middle"
@@ -513,13 +534,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                     MTTR <HelpCircle className="w-2.5 h-2.5 opacity-40" />
                   </div>
                 </th>
-                {/* Hiding Costs for now
                 <th className="px-4 py-4 text-center">
-                  <div className="flex items-center justify-center gap-1" title="Сумма реально затраченного времени инженеров на работу (человеко-часы). Вводится инженером вручную в поле 'Время работы'. Если поле не заполнено, будет 0.">
+                  <div className="flex items-center justify-center gap-1" title="Чистое время активной работы инженеров (человеко-часы). Не включает время, когда тикет был 'На паузе' или в статусе 'В ожидании'.">
                     Затраты <HelpCircle className="w-2.5 h-2.5 opacity-40" />
                   </div>
                 </th>
-                */}
                 <th className="px-4 py-4 text-center">
                   <div className="flex items-center justify-center gap-1" title="Количество эскалаций на 3-ю линию (Разработка/Инжиниринг)">
                     L3 <HelpCircle className="w-2.5 h-2.5 opacity-40" />
@@ -558,11 +577,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                     <td className="px-4 py-6 text-center">
                       <span className="font-black text-white/50 text-sm">{group.agg.avg_resolution_hours.toFixed(1)}ч</span>
                     </td>
-                    {/* Hiding aggregated Costs for now
                     <td className="px-4 py-6 text-center">
                       <span className="font-black text-white/50 text-sm">{(group.agg.total_effort_mins / 60).toFixed(1)}ч</span>
                     </td>
-                    */}
                     <td className="px-4 py-6 text-center">
                       <span className="font-black text-white/50 text-sm">{group.agg.l3_escalations}</span>
                     </td>
@@ -594,11 +611,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                       <td className="px-4 py-4 text-center">
                         <span className="font-bold text-white/60">{line.avg_resolution_hours.toFixed(1)}ч</span>
                       </td>
-                      {/* Hiding individual line Costs for now
                       <td className="px-4 py-4 text-center">
                         <span className="font-black text-white/60">{(line.total_effort_mins / 60).toFixed(1)}ч</span>
                       </td>
-                      */}
                       <td className="px-4 py-4 text-center">
                         <span className="font-black text-white/60">{line.l3_escalations}</span>
                       </td>
@@ -656,6 +671,69 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
           </table>
         </div>
       </div>
+
+      {/* Drilldown Modal */}
+      {selectedMonth !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="glass-card w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] border border-white/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-8 h-8 rounded-lg bg-[#FF5B00]/20 flex items-center justify-center">
+                    <Activity className="w-4 h-4 text-[#FF5B00]" />
+                  </div>
+                  <h2 className="text-xl font-black text-white uppercase tracking-tight">Детализация: Месяц {selectedMonth}</h2>
+                </div>
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Все обращения данного периода жизненного цикла</p>
+              </div>
+              <button 
+                onClick={() => setSelectedMonth(null)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              {isDrilldownLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-10 h-10 border-4 border-[#FF5B00]/20 border-t-[#FF5B00] rounded-full animate-spin" />
+                  <p className="text-white/30 font-black uppercase tracking-widest text-[10px]">Загрузка деталей...</p>
+                </div>
+              ) : drilldownTickets.length > 0 ? (
+                <div className="space-y-4">
+                  {drilldownTickets.map((ticket, i) => (
+                    <div key={i} className="glass-card p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all bg-white/[0.01]">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div className="flex flex-col">
+                          <span className="text-lg font-black text-white group-hover:text-[#FF5B00]">{ticket.client_name}</span>
+                          <span className="text-[10px] text-[#FF5B00] font-black uppercase tracking-widest">{ticket.line_name}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-white/40 uppercase border border-white/5">
+                            {ticket.category_name}
+                          </span>
+                          <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-white/40 uppercase border border-white/5">
+                            {new Date(ticket.reported_at).toLocaleDateString('ru-RU')}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-black/20 rounded-xl border border-white/5">
+                        <p className="text-white/80 text-sm leading-relaxed italic">{ticket.problem_description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20">
+                  <AlertCircle className="w-12 h-12 text-white/10 mx-auto mb-4" />
+                  <p className="text-white/30 font-bold uppercase tracking-widest text-xs">Нет данных за этот период</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

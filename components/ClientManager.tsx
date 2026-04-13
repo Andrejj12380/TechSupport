@@ -346,13 +346,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
   const handleDragStart = (e: React.DragEvent, equipId: number) => {
-    setDraggedEquipId(equipId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', equipId.toString());
 
-    // Create a ghost image or just let browser handle it
-    const target = e.currentTarget as HTMLElement;
-    target.classList.add('dragging');
+    // Use setTimeout so the browser captures the drag image BEFORE the DOM changes
+    setTimeout(() => {
+      setDraggedEquipId(equipId);
+      const target = e.currentTarget as HTMLElement;
+      if (target) target.classList.add('dragging');
+    }, 0);
   };
 
   const handleDragOver = (e: React.DragEvent, targetId: number) => {
@@ -1089,7 +1091,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                 {/* Sites Tiles Grid */}
                 <div className="mb-10">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Производственные площадки</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-[#FF5B00] dark:text-slate-200">Производственные площадки</h3>
+                    {isEngineer && sites.length > 0 && (
+                      <button
+                        onClick={() => setModal({ type: 'site', data: null })}
+                        className="px-5 py-2.5 bg-white/5 border border-white/10 text-white/50 rounded-full text-[10px] font-black uppercase tracking-wider hover:bg-[#FF5B00] hover:text-white hover:border-[#FF5B00] transition-all shadow-lg"
+                      >
+                        + Добавить площадку
+                      </button>
+                    )}
                   </div>
                   {sites.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1617,7 +1627,6 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         }
       </div >
 
-      {/* MODALS */}
       {/* MODALS */}
       {
         modal?.type === 'client' && (

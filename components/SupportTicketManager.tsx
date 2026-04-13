@@ -232,7 +232,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
         category_id: null,
         reported_at: '',
         resolved_at: '',
-        contact_channel: 'phone'
+        contact_channel: 'phone',
+        total_work_minutes: 0
     });
 
 
@@ -459,7 +460,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             category_id: unknownCategoryId,
             reported_at: '',
             resolved_at: '',
-            contact_channel: 'phone'
+            contact_channel: 'phone',
+            total_work_minutes: 0
         });
         setSelectedTicket(null);
         setLines([]);
@@ -480,7 +482,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
             category_id: ticket.category_id,
             reported_at: ticket.reported_at || '',
             resolved_at: ticket.resolved_at || '',
-            contact_channel: ticket.contact_channel || 'phone'
+            contact_channel: ticket.contact_channel || 'phone',
+            total_work_minutes: ticket.total_work_minutes || 0
         });
 
         // Fetch lines and contacts for the client
@@ -538,8 +541,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
     const handleStartWork = async (ticketId: number) => {
         try {
-            await api.startTicketWork(ticketId);
-            fetchData();
+            const updatedTicket = await api.startTicketWork(ticketId);
+            setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
         } catch (err) {
             console.error('Error starting work:', err);
         }
@@ -547,8 +550,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
     const handleStopWork = async (ticketId: number) => {
         try {
-            await api.stopTicketWork(ticketId);
-            fetchData();
+            const updatedTicket = await api.stopTicketWork(ticketId);
+            setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
         } catch (err) {
             console.error('Error stopping work:', err);
         }
@@ -556,8 +559,8 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
 
     const handlePauseWork = async (ticketId: number) => {
         try {
-            await api.pauseTicketWork(ticketId);
-            fetchData();
+            const updatedTicket = await api.pauseTicketWork(ticketId);
+            setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
         } catch (err) {
             console.error('Error pausing work:', err);
         }
@@ -643,8 +646,11 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
     const [draggedTicket, setDraggedTicket] = useState<SupportTicket | null>(null);
     const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
-    const handleDragStart = (ticket: SupportTicket) => {
-        setDraggedTicket(ticket);
+    const handleDragStart = (e: React.DragEvent, ticket: SupportTicket) => {
+        e.dataTransfer.setData('text/plain', ticket.id.toString());
+        e.dataTransfer.effectAllowed = 'move';
+        // Use setTimeout to allow the browser to initiate the drag before the DOM changes (due to state)
+        setTimeout(() => setDraggedTicket(ticket), 0);
     };
 
     const handleDragOver = (e: React.DragEvent, status: string) => {
@@ -705,7 +711,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                         <div 
                             key={t.id} 
                             draggable
-                            onDragStart={() => handleDragStart(t)}
+                            onDragStart={(e) => handleDragStart(e, t)}
                             onDragEnd={() => setDraggedTicket(null)}
                             onClick={() => openEditModal(t)}
                             className={`glass-card p-4 rounded-2xl border border-white/10 shadow-sm hover:shadow-md hover:border-primary/40 dark:hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing group select-none ${t.id === draggedTicket?.id ? 'opacity-50 scale-95 border-primary shadow-inner' : ''}`}
@@ -1029,21 +1035,20 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                 </div>
                                             </div>
 
-                                            {/* Hiding Start/Stop/Pause buttons for now
-                                            {isAuthorized && !['paid', 'warranty'].includes(getTicketSupportStatus(ticket).status) && (
+                                            {isAuthorized && (
                                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                     {ticket.work_started_at ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleStopWork(ticket.id); }}
-                                                                className="flex items-center gap-1 px-2 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-red-100 transition-all animate-pulse"
+                                                                className="flex items-center gap-1 px-2 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-red-500/20 transition-all animate-pulse"
                                                             >
                                                                 <Square className="w-3 h-3 fill-current" />
                                                                 Стоп
                                                             </button>
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handlePauseWork(ticket.id); }}
-                                                                className="flex items-center gap-1 px-2 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 transition-all"
+                                                                className="flex items-center gap-1 px-2 py-1.5 bg-slate-500/10 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-slate-500/20 transition-all"
                                                                 title="Пауза"
                                                             >
                                                                 <Pause className="w-3 h-3 fill-current" />
@@ -1052,7 +1057,7 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                     ) : (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleStartWork(ticket.id); }}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500/20 transition-all"
                                                         >
                                                             <Play className="w-3 h-3 fill-current" />
                                                             {ticket.status === 'on_hold' ? 'Продолжить' : 'Начать'}
@@ -1060,7 +1065,6 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                                     )}
                                                 </div>
                                             )}
-                                            */}
                                         </div>
                                     </td>
                                     <td className="absolute top-2 right-2 md:static block md:table-cell px-0 py-0 md:px-4 md:py-5 text-center border-none">
@@ -1278,6 +1282,23 @@ export default function SupportTicketManager({ user }: SupportTicketManagerProps
                                         onChange={(e) => setFormData({ ...formData, resolved_at: toISOStringFromInput(e.target.value) || undefined })}
                                         className={`premium-input ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                                     />
+                                </div>
+                                <div className="space-y-2 col-span-full">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                        <Clock className="w-3 h-3" /> Затраты времени (минуты)
+                                    </label>
+                                    <input
+                                        disabled={isViewer}
+                                        type="number"
+                                        min="0"
+                                        value={formData.total_work_minutes || 0}
+                                        onChange={(e) => setFormData({ ...formData, total_work_minutes: parseInt(e.target.value) || 0 })}
+                                        className={`premium-input ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        placeholder="Введите время в минутах..."
+                                    />
+                                    <p className="text-[10px] font-bold text-white/30 italic">
+                                        Это чистое время активной работы. Оно также обновляется кнопками таймера в списке.
+                                    </p>
                                 </div>
                             </div>
 

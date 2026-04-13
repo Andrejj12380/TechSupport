@@ -419,13 +419,18 @@ app.delete('/api/camera-presets/:id', authenticateToken, authorize(['admin', 'en
 app.get('/api/tickets/analytics/categories', authenticateToken, async (req, res) => {
   try {
     const { period } = req.query;
-    let interval = null;
-    if (period === '7d') interval = "7 days";
-    else if (period === '30d') interval = "30 days";
-    else if (period === '90d') interval = "90 days";
-    else if (period === '365d') interval = "365 days";
+    let filterClause = '';
 
-    const filterClause = interval ? `AND t.reported_at >= NOW() - INTERVAL '${interval}'` : '';
+    if (period === '7d') {
+      // ISO week starts on Monday
+      filterClause = "AND t.reported_at >= date_trunc('week', CURRENT_DATE)";
+    } else if (period === '30d') {
+      filterClause = "AND t.reported_at >= NOW() - INTERVAL '30 days'";
+    } else if (period === '90d') {
+      filterClause = "AND t.reported_at >= NOW() - INTERVAL '90 days'";
+    } else if (period === '365d') {
+      filterClause = "AND t.reported_at >= NOW() - INTERVAL '365 days'";
+    }
 
     const query = `
       SELECT c.id as category_id, c.name as category_name, c.description,
@@ -434,17 +439,17 @@ app.get('/api/tickets/analytics/categories', authenticateToken, async (req, res)
               COUNT(t.id) FILTER (WHERE t.status = 'on_hold' ${filterClause}) as on_hold_tickets,
               COUNT(t.id) FILTER (WHERE t.status = 'solved' ${filterClause}) as solved_tickets,
               COUNT(t.id) FILTER (WHERE t.status = 'unsolved' ${filterClause}) as unsolved_tickets,
-              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
-                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL), 2) as avg_total,
-              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
-                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '7 days'), 2) as avg_7d,
-              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
-                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '30 days'), 2) as avg_30d,
-              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
-                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '90 days'), 2) as avg_90d,
-              ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)
-                    FILTER (WHERE t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL AND t.reported_at >= NOW() - INTERVAL '365 days'), 2) as avg_365d,
-              COUNT(t.id) FILTER (WHERE t.reported_at >= NOW() - INTERVAL '7 days') as last_7d_tickets
+              ROUND(AVG(COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0))
+                    FILTER (WHERE (t.total_work_minutes > 0) OR (t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL)), 2) as avg_total,
+              ROUND(AVG(COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0))
+                    FILTER (WHERE ((t.total_work_minutes > 0) OR (t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL)) AND t.reported_at >= date_trunc('week', CURRENT_DATE)), 2) as avg_7d,
+              ROUND(AVG(COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0))
+                    FILTER (WHERE ((t.total_work_minutes > 0) OR (t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL)) AND t.reported_at >= NOW() - INTERVAL '30 days'), 2) as avg_30d,
+              ROUND(AVG(COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0))
+                    FILTER (WHERE ((t.total_work_minutes > 0) OR (t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL)) AND t.reported_at >= NOW() - INTERVAL '90 days'), 2) as avg_90d,
+              ROUND(AVG(COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0))
+                    FILTER (WHERE ((t.total_work_minutes > 0) OR (t.resolved_at IS NOT NULL AND t.reported_at IS NOT NULL)) AND t.reported_at >= NOW() - INTERVAL '365 days'), 2) as avg_365d,
+              COUNT(t.id) FILTER (WHERE t.reported_at >= date_trunc('week', CURRENT_DATE)) as last_7d_tickets
        FROM ticket_categories c
        LEFT JOIN support_tickets t ON t.category_id = c.id
        WHERE c.is_active = true
@@ -523,8 +528,8 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
         SELECT 
           t.line_id,
           t.id as ticket_id,
-          t.total_work_minutes,
-          EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600 as resolution_hours,
+          COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0) as resolution_hours,
+          COALESCE(NULLIF(t.total_work_minutes, 0), EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 60.0) as work_minutes,
           (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
            EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index
         FROM support_tickets t
@@ -537,7 +542,7 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
         COUNT(DISTINCT line_id) as active_lines,
         ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT line_id), 0), 2) as avg_tickets_per_line,
         ROUND(AVG(resolution_hours)::numeric, 1) as avg_resolution_hours,
-        ROUND(SUM(COALESCE(total_work_minutes, 0))::numeric / NULLIF(COUNT(*), 0), 1) as avg_work_minutes
+        ROUND(AVG(work_minutes)::numeric, 1) as avg_work_minutes
       FROM TicketRelative
       WHERE month_index >= 0 AND month_index <= 24
       GROUP BY month_index
@@ -564,13 +569,13 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
           ls.client_id,
           ls.client_name,
           ls.start_date,
-          t.total_work_minutes,
           t.support_line,
           t.resolved_at,
-          EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600 as resolution_hours,
+          t.reported_at,
+          COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0) as resolution_hours,
+          COALESCE(NULLIF(t.total_work_minutes, 0), EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 60.0) as work_minutes,
           (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
-           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index,
-           t.reported_at
+           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index
         FROM support_tickets t
         JOIN LineStart ls ON t.line_id = ls.line_id
         WHERE t.reported_at >= ls.start_date::timestamp with time zone
@@ -586,8 +591,8 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
         ROUND(COUNT(*) FILTER (WHERE month_index > 0)::numeric / NULLIF(MAX(month_index), 0), 2) as subsequent_avg,
         MAX(month_index) as months_since_start,
         COUNT(*) FILTER (WHERE reported_at >= NOW() - INTERVAL '30 days') as last_30d_tickets,
-        ROUND(SUM(COALESCE(total_work_minutes, 0))::numeric, 0) as total_effort_mins,
-        ROUND(AVG(resolution_hours) FILTER (WHERE resolved_at IS NOT NULL)::numeric, 1) as avg_resolution_hours,
+        ROUND(SUM(work_minutes)::numeric, 0) as total_effort_mins,
+        ROUND(AVG(resolution_hours) FILTER (WHERE resolved_at IS NOT NULL OR work_minutes > 0)::numeric, 1) as avg_resolution_hours,
         COUNT(*) FILTER (WHERE support_line = 3) as l3_escalations
       FROM TicketRelative
       GROUP BY line_id, line_name, client_id, client_name, start_date
@@ -639,7 +644,49 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
     });
   } catch (err) {
     console.error('Error fetching post-implementation analytics:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/tickets/analytics/post-implementation/drilldown/:monthIndex', authenticateToken, async (req, res) => {
+  try {
+    const { monthIndex } = req.params;
+    const drilldownQuery = `
+      WITH LineStart AS (
+        SELECT 
+          pl.id as line_id, 
+          pl.name as line_name,
+          c.name as client_name,
+          COALESCE(pl.warranty_start_date, pl.paid_support_start_date, c.warranty_start_date, c.paid_support_start_date, c.created_at::date) as start_date
+        FROM production_lines pl
+        JOIN sites s ON pl.site_id = s.id
+        JOIN clients c ON s.client_id = c.id
+      ),
+      TicketRelative AS (
+        SELECT 
+          t.id,
+          t.problem_description,
+          t.reported_at,
+          ls.client_name,
+          ls.line_name,
+          COALESCE(tc.name, 'Не указано') as category_name,
+          (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
+           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index
+        FROM support_tickets t
+        JOIN LineStart ls ON t.line_id = ls.line_id
+        LEFT JOIN ticket_categories tc ON t.category_id = tc.id
+        WHERE t.reported_at >= ls.start_date::timestamp with time zone
+      )
+      SELECT * FROM TicketRelative
+      WHERE month_index = $1
+      ORDER BY reported_at DESC;
+    `;
+
+    const result = await pool.query(drilldownQuery, [monthIndex]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching analytics drilldown:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1854,6 +1901,27 @@ app.post('/api/tickets/analyze', authenticateToken, async (req, res) => {
   }
 });
 
+async function getFullTicketById(id) {
+  const result = await pool.query(
+    `SELECT t.*, c.name as client_name, pl.name as line_name, u.username as engineer_name,
+            tc.name as category_name,
+            c.warranty_start_date as client_warranty_start,
+            c.paid_support_start_date as client_paid_support_start,
+            c.paid_support_end_date as client_paid_support_end,
+            pl.warranty_start_date as line_warranty_start,
+            pl.paid_support_start_date as line_paid_support_start,
+            pl.paid_support_end_date as line_paid_support_end
+     FROM support_tickets t
+     JOIN clients c ON t.client_id = c.id
+     LEFT JOIN production_lines pl ON t.line_id = pl.id
+     LEFT JOIN ticket_categories tc ON t.category_id = tc.id
+     JOIN users u ON t.user_id = u.id
+     WHERE t.id = $1`,
+    [id]
+  );
+  return result.rows[0];
+}
+
 // Get all tickets with filters
 app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
@@ -1930,7 +1998,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
 // Update a ticket
 app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id, contact_channel } = req.body;
+  const { line_id, contact_name, problem_description, solution_description, status, support_line, reported_at, resolved_at, category_id, contact_channel, total_work_minutes } = req.body;
   try {
     // Only allow engineer or admin to update
     if (req.user.role === 'viewer') {
@@ -1951,16 +2019,18 @@ app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
       `UPDATE support_tickets 
             SET line_id = $1, contact_name = $2, problem_description = $3, 
                 solution_description = $4, status = $5, support_line = $6, reported_at = $7::timestamptz, resolved_at = $8::timestamptz, updated_at = CURRENT_TIMESTAMP
-                , category_id = COALESCE($9, category_id), user_id = COALESCE($11, user_id), contact_channel = COALESCE($12, contact_channel)
+                , category_id = COALESCE($9, category_id), user_id = COALESCE($11, user_id), contact_channel = COALESCE($12, contact_channel),
+                total_work_minutes = COALESCE($13, total_work_minutes)
             WHERE id = $10
             RETURNING *`,
-      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id, req.body.user_id || null, contact_channel]
+      [line_id, contact_name, problem_description, solution_description, status, support_line, reported_at || null, resolvedAtValue, category_id || null, id, req.body.user_id || null, contact_channel, total_work_minutes]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
-    res.json(result.rows[0]);
+    const fullTicket = await getFullTicketById(id);
+    res.json(fullTicket);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -1993,7 +2063,8 @@ app.post('/api/tickets/:id/work/start', authenticateToken, authorize(['admin', '
       [id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Ticket not found' });
-    res.json(result.rows[0]);
+    const fullTicket = await getFullTicketById(id);
+    res.json(fullTicket);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2021,7 +2092,8 @@ app.post('/api/tickets/:id/work/stop', authenticateToken, authorize(['admin', 'e
        WHERE id = $1 RETURNING *`,
       [id, diffMins]
     );
-    res.json(result.rows[0]);
+    const fullTicket = await getFullTicketById(id);
+    res.json(fullTicket);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2038,8 +2110,8 @@ app.post('/api/tickets/:id/work/pause', authenticateToken, authorize(['admin', '
     if (!ticket.work_started_at) {
       // If already paused, just ensure status is on_hold
       await pool.query("UPDATE support_tickets SET status = 'on_hold' WHERE id = $1", [id]);
-      const updated = await pool.query('SELECT * FROM support_tickets WHERE id = $1', [id]);
-      return res.json(updated.rows[0]);
+      const updated = await getFullTicketById(id);
+      return res.json(updated);
     }
 
     const start = new Date(ticket.work_started_at);
@@ -2055,7 +2127,8 @@ app.post('/api/tickets/:id/work/pause', authenticateToken, authorize(['admin', '
        WHERE id = $1 RETURNING *`,
       [id, diffMins]
     );
-    res.json(result.rows[0]);
+    const fullTicket = await getFullTicketById(id);
+    res.json(fullTicket);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

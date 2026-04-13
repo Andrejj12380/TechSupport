@@ -256,6 +256,10 @@ class ApiService {
     return this.request('/tickets/analytics/post-implementation');
   }
 
+  async getPostImplementationDrilldown(monthIndex: number): Promise<AnalyticsDrilldownTicket[]> {
+    return this.request(`/tickets/analytics/post-implementation/drilldown/${monthIndex}`);
+  }
+
   // Health check
   async healthCheck() {
     return this.request('/health');

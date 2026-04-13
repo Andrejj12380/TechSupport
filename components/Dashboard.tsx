@@ -18,7 +18,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [showAllExpirations, setShowAllExpirations] = useState(false);
   const [channelAnalytics, setChannelAnalytics] = useState<any[]>([]);
-  const [frequencyAnalytics, setFrequencyAnalytics] = useState<any[]>([]);
 
   // Collapse state for major sections
   const [showExpirations, setShowExpirations] = useState(true);
@@ -52,18 +51,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   useEffect(() => {
     const loadAnalytics = async () => {
       try {
-        const [catData, chanData, freqData] = await Promise.all([
+        const [catData, chanData] = await Promise.all([
             api.getTicketCategoryAnalytics(avgPeriod),
-            api.getTicketChannelAnalytics(),
-            api.getTicketFrequencyAnalytics()
+            api.getTicketChannelAnalytics()
         ]);
         setCategoryAnalytics(catData);
         setChannelAnalytics(chanData);
-        setFrequencyAnalytics(freqData);
       } catch (e) {
         setCategoryAnalytics([]);
         setChannelAnalytics([]);
-        setFrequencyAnalytics([]);
       }
     };
     loadAnalytics();
@@ -106,16 +102,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     };
   }, [lineSupportInfo]);
 
-  // Trend: tickets created this week vs last week
+  // Trend: tickets created this week vs last week (ISO Week: Monday start)
   const trend = React.useMemo(() => {
     const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const currentDay = now.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+    
+    // Calculate Monday of the current week
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const startOfThisWeek = new Date(now);
+    startOfThisWeek.setDate(now.getDate() + diffToMonday);
+    startOfThisWeek.setHours(0, 0, 0, 0);
 
-    const ticketsThisWeek = tickets.filter(t => new Date(t.created_at) >= oneWeekAgo).length;
+    // Calculate Monday of the previous week
+    const startOfLastWeek = new Date(startOfThisWeek);
+    startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+
+    const ticketsThisWeek = tickets.filter(t => new Date(t.created_at) >= startOfThisWeek).length;
     const ticketsLastWeek = tickets.filter(t => {
       const d = new Date(t.created_at);
-      return d >= twoWeeksAgo && d < oneWeekAgo;
+      return d >= startOfLastWeek && d < startOfThisWeek;
     }).length;
 
     return {
@@ -754,8 +759,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Channels & Frequency */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:p-8">
+      {/* Channels */}
+      <div className="grid grid-cols-1 gap-4 sm:p-8">
         {/* Channel Distribution */}
         <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
           <SectionHeader
@@ -786,36 +791,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   );
                 }) : (
                   <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Client Frequency */}
-        <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
-          <SectionHeader
-            title="Интенсивность запросов"
-            subtitle="Среднее кол-во обращений в месяц после внедрения"
-            isOpen={showChannelFreq}
-            onToggle={() => setShowChannelFreq(v => !v)}
-          />
-          <div className={`overflow-hidden transition-all duration-300 ${showChannelFreq ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="p-4 sm:p-8">
-              <div className="space-y-4">
-                {frequencyAnalytics.length > 0 ? frequencyAnalytics.map((item) => (
-                  <div key={item.client_id} className="flex items-center justify-between p-3 rounded-2xl border border-slate-50 border-white/10 hover:bg-white/10/50 transition-all">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-white">{item.client_name}</span>
-                      <span className="text-[10px] text-slate-400 font-medium">С {new Date(item.warranty_start_date).toLocaleDateString('ru-RU')}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-black text-[#FF5B00]">{item.tickets_per_month}</div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">заявок/мес</div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-12 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет данных о гарантии</div>
                 )}
               </div>
             </div>
