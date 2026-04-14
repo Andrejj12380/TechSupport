@@ -611,10 +611,86 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
       LIMIT 10;
     `;
 
-    const [trendResult, lineResult, categoryResult] = await Promise.all([
+    // 4. Category breakdown by lifecycle month (relative M0..M24)
+    const categoryByLifecycleQuery = `
+      WITH LineStart AS (
+        SELECT 
+          pl.id as line_id, 
+          COALESCE(pl.warranty_start_date, pl.paid_support_start_date, c.warranty_start_date, c.paid_support_start_date, c.created_at::date) as start_date
+        FROM production_lines pl
+        JOIN sites s ON pl.site_id = s.id
+        JOIN clients c ON s.client_id = c.id
+      ),
+      TicketCat AS (
+        SELECT 
+          t.line_id,
+          COALESCE(tc.name, 'Не указано') as category_name,
+          (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
+           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index
+        FROM support_tickets t
+        JOIN LineStart ls ON t.line_id = ls.line_id
+        LEFT JOIN ticket_categories tc ON t.category_id = tc.id
+        WHERE t.reported_at >= ls.start_date::timestamp with time zone
+      ),
+      TopCats AS (
+        SELECT category_name, COUNT(*) as total
+        FROM TicketCat WHERE month_index >= 0 AND month_index <= 24
+        GROUP BY category_name ORDER BY total DESC LIMIT 5
+      ),
+      Labeled AS (
+        SELECT 
+          month_index,
+          CASE WHEN tc.category_name IS NOT NULL THEN t.category_name ELSE 'Прочее' END as category_name,
+          t.line_id
+        FROM TicketCat t
+        LEFT JOIN TopCats tc ON t.category_name = tc.category_name
+        WHERE t.month_index >= 0 AND t.month_index <= 24
+      )
+      SELECT 
+        month_index,
+        category_name,
+        COUNT(*) as ticket_count,
+        COUNT(DISTINCT line_id) as active_lines,
+        ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT line_id), 0), 2) as avg_per_line
+      FROM Labeled
+      GROUP BY month_index, category_name
+      ORDER BY month_index ASC, ticket_count DESC;
+    `;
+
+    // 5. Category breakdown by calendar month (absolute timeline)
+    const categoryByCalendarQuery = `
+      WITH TopCats AS (
+        SELECT COALESCE(tc.name, 'Не указано') as category_name, COUNT(*) as total
+        FROM support_tickets t
+        LEFT JOIN ticket_categories tc ON t.category_id = tc.id
+        GROUP BY category_name ORDER BY total DESC LIMIT 5
+      ),
+      Labeled AS (
+        SELECT 
+          TO_CHAR(t.reported_at, 'YYYY-MM') as calendar_month,
+          CASE WHEN tc2.category_name IS NOT NULL 
+               THEN COALESCE(tc.name, 'Не указано') 
+               ELSE 'Прочее' END as category_name
+        FROM support_tickets t
+        LEFT JOIN ticket_categories tc ON t.category_id = tc.id
+        LEFT JOIN TopCats tc2 ON COALESCE(tc.name, 'Не указано') = tc2.category_name
+        WHERE t.reported_at IS NOT NULL
+      )
+      SELECT 
+        calendar_month,
+        category_name,
+        COUNT(*) as ticket_count
+      FROM Labeled
+      GROUP BY calendar_month, category_name
+      ORDER BY calendar_month ASC, ticket_count DESC;
+    `;
+
+    const [trendResult, lineResult, categoryResult, catLifecycleResult, catCalendarResult] = await Promise.all([
       pool.query(trendQuery),
       pool.query(lineQuery),
-      pool.query(categoryQuery)
+      pool.query(categoryQuery),
+      pool.query(categoryByLifecycleQuery),
+      pool.query(categoryByCalendarQuery)
     ]);
 
     res.json({
@@ -639,6 +715,17 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
       })),
       categories: categoryResult.rows.map(r => ({
         ...r,
+        ticket_count: Number(r.ticket_count)
+      })),
+      categoryByLifecycle: catLifecycleResult.rows.map(r => ({
+        month_index: Number(r.month_index),
+        category_name: r.category_name,
+        ticket_count: Number(r.ticket_count),
+        avg_per_line: Number(r.avg_per_line || 0)
+      })),
+      categoryByCalendar: catCalendarResult.rows.map(r => ({
+        calendar_month: r.calendar_month,
+        category_name: r.category_name,
         ticket_count: Number(r.ticket_count)
       }))
     });
@@ -1450,6 +1537,22 @@ app.get('/api/search', authenticateToken, async (req, res) => {
       raw: c
     }));
 
+    // Support Tickets (Обращения)
+    const tickets = await pool.query(
+      `SELECT t.*, c.name as client_name
+       FROM support_tickets t
+       JOIN clients c ON t.client_id = c.id
+       WHERE t.problem_description ILIKE $1 OR t.contact_name ILIKE $1
+       ORDER BY t.reported_at DESC LIMIT 10`,
+      [term]
+    );
+    tickets.rows.forEach(t => results.push({
+      type: 'Обращение',
+      name: `№${t.id}: ${t.problem_description.substring(0, 50)}${t.problem_description.length > 50 ? '...' : ''} (${t.client_name})`,
+      id: t.id,
+      raw: t
+    }));
+
     res.json(results);
   } catch (err) {
     console.error(err);
@@ -2027,7 +2130,7 @@ app.put('/api/tickets/:id', authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Ticket not found' });
+      return res.status(404).json({ error: 'Обращение не найдено' });
     }
     const fullTicket = await getFullTicketById(id);
     res.json(fullTicket);
@@ -2043,9 +2146,9 @@ app.delete('/api/tickets/:id', authenticateToken, authorize(['admin']), async (r
   try {
     const result = await pool.query('DELETE FROM support_tickets WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Ticket not found' });
+      return res.status(404).json({ error: 'Обращение не найдено' });
     }
-    res.json({ message: 'Ticket deleted successfully' });
+    res.json({ message: 'Обращение успешно удалено' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -2062,7 +2165,7 @@ app.post('/api/tickets/:id/work/start', authenticateToken, authorize(['admin', '
        WHERE id = $1 RETURNING *`,
       [id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Ticket not found' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Обращение не найдено' });
     const fullTicket = await getFullTicketById(id);
     res.json(fullTicket);
   } catch (err) {

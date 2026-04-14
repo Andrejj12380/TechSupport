@@ -16,7 +16,6 @@ import {
   Filter,
   Factory,
   Clock,
-  PieChart,
   X
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -35,6 +34,46 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [drilldownTickets, setDrilldownTickets] = useState<AnalyticsDrilldownTicket[]>([]);
   const [isDrilldownLoading, setIsDrilldownLoading] = useState(false);
+
+  // Interaction State
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
+
+  const resetInteraction = () => {
+    setZoom(1);
+    setPan(0);
+  };
+
+  const zoomIn = () => setZoom(prev => Math.min(prev * 1.3, 10));
+  const zoomOut = () => setZoom(prev => Math.max(prev / 1.3, 1));
+
+  const ZoomControls = () => (
+    <div className="flex items-center gap-1">
+      <button onClick={zoomOut} disabled={zoom <= 1} className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all flex items-center justify-center text-sm font-bold">−</button>
+      <button onClick={zoomIn} disabled={zoom >= 10} className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all flex items-center justify-center text-sm font-bold">+</button>
+      {zoom > 1 && <button onClick={resetInteraction} className="h-7 px-2 rounded-lg bg-white/5 border border-white/10 text-[9px] font-black text-white/40 hover:text-white/70 uppercase tracking-wider transition-all">1:1</button>}
+    </div>
+  );
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    setStartX(e.clientX - pan);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const newPan = e.clientX - startX;
+    // Bounds for pan
+    const maxPan = 0;
+    const minPan = -(800 * (zoom - 1));
+    setPan(Math.min(maxPan, Math.max(minPan, newPan)));
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
 
   const fetchDrilldown = async (monthIndex: number) => {
     try {
@@ -257,7 +296,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
         </div>
 
         <div className="glass-card p-8 rounded-[2rem] border border-white/10 relative group">
-          <div className="absolute top-8 right-8 text-white/20 group-hover:text-[#FF5B00] transition-colors cursor-help" title="Распределение линий по интенсивности обращений в текущий момент: High (>=5), Med (>=1), Low (<1) тикетов в месяц.">
+          <div className="absolute top-8 right-8 text-white/20 group-hover:text-[#FF5B00] transition-colors cursor-help" title="Распределение линий по интенсивности обращений в текущий момент: High (>=5), Med (>=1), Low (<1) обращений в месяц.">
             <HelpCircle className="w-5 h-5" />
           </div>
           <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-4">
@@ -282,228 +321,484 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
         </div>
       </div>
 
-      {/* Life Cycle Narrative */}
-      <div className="glass-card p-8 rounded-[2rem] border border-white/5 bg-white/[0.02]">
-        <div className="flex flex-col md:flex-row gap-8 items-start">
-          <div className="w-16 h-16 rounded-2xl bg-[#FF5B00]/10 flex items-center justify-center shrink-0">
-            <Calendar className="w-8 h-8 text-[#FF5B00]" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-xl font-black text-white uppercase tracking-tight">Жизненный цикл линии</h2>
-            <div className="text-white/70 leading-relaxed space-y-3">
-              <p>
-                {(() => {
-                  const trend = data.monthlyTrend;
-                  const m0 = Number(trend.find(t => t.month_index === 0)?.avg_tickets_per_line || 0);
-                  const m1_3 = trend.filter(t => t.month_index >= 1 && t.month_index <= 3);
-                  const m1_3_avg = m1_3.length ? m1_3.reduce((s, t) => s + Number(t.avg_tickets_per_line), 0) / m1_3.length : 0;
-                  const m6_plus = trend.filter(t => t.month_index >= 6);
-                  const m6_avg = m6_plus.length ? m6_plus.reduce((s, t) => s + Number(t.avg_tickets_per_line), 0) / m6_plus.length : 0;
-
-                  return (
-                    <>
-                      Статистика показывает, что <strong>активное взаимодействие начинается с первого месяца (M0)</strong>,
-                      когда нагрузка максимальна и составляет в среднем <strong>{m0.toFixed(1)} тикетов</strong> на линию.
-                      Это период первичной настройки и обучения операторов.
-                    </>
-                  );
-                })()}
-              </p>
-              <p>
-                {(() => {
-                  const trend = data.monthlyTrend;
-                  const m0 = Number(trend.find(t => t.month_index === 0)?.avg_tickets_per_line || 0);
-                  const m1_3 = trend.filter(t => t.month_index >= 1 && t.month_index <= 3);
-                  const m1_3_avg = m1_3.length ? m1_3.reduce((s, t) => s + Number(t.avg_tickets_per_line), 0) / m1_3.length : 0;
-                  const reduction = m0 > 0 ? Math.round(((m0 - m1_3_avg) / m0) * 100) : 0;
-
-                  return (
-                    <>
-                      Со 2-го по 4-й месяц (фаза адаптации) количество вопросов обычно снижается на
-                      <strong> {reduction}%</strong>. В этот период персонал клиента перестает спрашивать
-                      о базовых вещах и переходит к более редким, специфическим кейсам.
-                    </>
-                  );
-                })()}
-              </p>
-              <p>
-                {(() => {
-                  const trend = data.monthlyTrend;
-                  const m6_plus = trend.filter(t => t.month_index >= 6);
-                  const m6_avg = m6_plus.length ? m6_plus.reduce((s, t) => s + Number(t.avg_tickets_per_line), 0) / m6_plus.length : 0;
-
-                  if (m6_plus.length === 0) return "Данных для анализа долгосрочной стабилизации (после 6 мес) пока недостаточно.";
-
-                  return (
-                    <>
-                      После <strong>6-го месяца</strong> спрос на поддержку стабилизируется на уровне
-                      <strong> {m6_avg.toFixed(1)} тикетов/мес</strong>. Линия переходит в режим
-                      штатной эксплуатации, где обращения связаны преимущественно с плановым обслуживанием
-                      или обновлением ПО.
-                    </>
-                  );
-                })()}
-              </p>
+      {/* Combined Life Cycle and Trend Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch">
+        {/* Life Cycle Narrative */}
+        <div className="glass-card p-8 rounded-[2.5rem] border border-white/5 bg-white/[0.02] flex flex-col h-full">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-[#FF5B00]/10 flex items-center justify-center shrink-0">
+              <Calendar className="w-6 h-6 text-[#FF5B00]" />
             </div>
+            <h2 className="text-xl font-black text-white uppercase tracking-tight">Жизненный цикл</h2>
+          </div>
+          <div className="text-[13px] text-white/70 leading-relaxed space-y-4 flex-1">
+            <p>
+              {(() => {
+                const trend = data.monthlyTrend;
+                const m0 = Number(trend.find(t => t.month_index === 0)?.avg_tickets_per_line || 0);
+                return (
+                  <>
+                    Активное взаимодействие начинается с <strong>M0</strong>, когда нагрузка максимальна (<strong>{m0.toFixed(1)} обращений</strong>). Это период первичной настройки и обучения.
+                  </>
+                );
+              })()}
+            </p>
+            <p>
+              {(() => {
+                const trend = data.monthlyTrend;
+                const m0 = Number(trend.find(t => t.month_index === 0)?.avg_tickets_per_line || 0);
+                const m1_3 = trend.filter(t => t.month_index >= 1 && t.month_index <= 3);
+                const m1_3_avg = m1_3.length ? m1_3.reduce((s, t) => s + Number(t.avg_tickets_per_line), 0) / m1_3.length : 0;
+                const reduction = m0 > 0 ? Math.round(((m0 - m1_3_avg) / m0) * 100) : 0;
+                return (
+                  <>
+                    В фазе адаптации (M1-M3) количество вопросов обычно снижается на <strong>{reduction}%</strong>. Персонал переходит к специфическим кейсам.
+                  </>
+                );
+              })()}
+            </p>
+            <p>
+              {(() => {
+                const trend = data.monthlyTrend;
+                const m6_plus = trend.filter(t => t.month_index >= 6);
+                const m6_avg = m6_plus.length ? m6_plus.reduce((s, t) => s + Number(t.avg_tickets_per_line), 0) / m6_plus.length : 0;
+                if (m6_plus.length === 0) return "Данных для анализа стабилизации пока недостаточно.";
+                return (
+                  <>
+                    После <strong>6-го месяца</strong> спрос стабилизируется на уровне <strong>{m6_avg.toFixed(1)} обращений/мес</strong>. Переход в штатный режим эксплуатации.
+                  </>
+                );
+              })()}
+            </p>
           </div>
         </div>
-      </div>
-      {/* Main Chart: Tickets Demand Trend */}
-      <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-xl font-black text-white italic uppercase tracking-tight">Тренд обращений (M0-M{data.monthlyTrend.length - 1})</h2>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Ось Y: Тикетов/мес, Ось X: Месяцы от запуска</p>
-          </div>
-        </div>
 
-        <div className="relative h-[400px] w-full max-w-5xl mx-auto">
-          <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
-            {/* Grid & Y-Axis */}
-            {[0, 0.5, 1].map(p => {
-              const maxVal = Math.max(...data.monthlyTrend.map(t => Number(t.avg_tickets_per_line))) || 1;
-              const y = 60 + p * 180;
-              const val = (maxVal * (1 - p)).toFixed(1);
-              return (
-                <g key={p}>
-                  <line x1="60" y1={y} x2="740" y2={y} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
-                  <text x="50" y={y + 4} textAnchor="end" className="text-[12px] fill-slate-500 font-black">{val}</text>
-                </g>
-              );
-            })}
-
-            {chartPoints && (
-              <>
-                <polyline points={chartPoints} fill="none" stroke="#FF5B00" strokeWidth="4" strokeLinecap="round" className="drop-shadow-[0_0_8px_rgba(255,91,0,0.5)]" />
-                <polyline points={`60,240 ${chartPoints} 740,240`} fill="url(#orangeGrad)" stroke="none" />
-                <defs>
-                  <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FF5B00" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#FF5B00" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-
-                {data.monthlyTrend.map((t, i) => {
-                  const points = chartPoints.split(' ');
-                  if (!points[i]) return null;
-                  const [px, py] = points[i].split(',').map(Number);
-                  return (
-                    <g key={i} className="group/point">
-                      <circle 
-                        cx={px} cy={py} r="5" fill="#FF5B00" 
-                        className="transition-all hover:r-8 hover:fill-white cursor-pointer" 
-                        onClick={() => fetchDrilldown(t.month_index)}
-                      />
-                      <text
-                        x={px} y={py - 20}
-                        textAnchor="middle"
-                        className="text-[16px] fill-white font-black opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                      >
-                        {t.avg_tickets_per_line}
-                      </text>
-                      <text x={px} y={260} textAnchor="middle" className="text-[11px] fill-slate-400 font-bold uppercase">M{t.month_index}</text>
-                    </g>
-                  );
-                })}
-              </>
-            )}
-          </svg>
-        </div>
-      </div>
-
-      {/* Advanced Analysis Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* MTTR Chart */}
-        <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
+        {/* Main Chart: Tickets Demand Trend */}
+        <div className="xl:col-span-2 glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8 h-full">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-xl font-black text-white">Среднее время решения (MTTR)</h2>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Динамика скорости закрытия тикетов (часы)</p>
+              <h2 className="text-xl font-black text-white italic uppercase tracking-tight">Тренд обращений (M0-M{data.monthlyTrend.length - 1})</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Ось Y: Обращений/мес • Ось X: Месяцы от запуска</p>
             </div>
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
-              <Clock className="w-5 h-5 text-emerald-500" />
+            <div className="flex items-center gap-3">
+              <ZoomControls />
             </div>
           </div>
 
-          <div className="relative h-[300px] w-full max-w-2xl mx-auto">
+          <div 
+            className="relative h-[280px] w-full cursor-grab overflow-hidden"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
             <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
-              {/* Grid & Y-Axis */}
+              <g transform={`translate(${pan}, 0) scale(${zoom}, 1)`}>
+                {/* Data Points moved into transformed group */}
+                {chartPoints && (
+                  <>
+                    <polyline points={chartPoints} fill="none" stroke="#FF5B00" strokeWidth={4 / zoom} strokeLinecap="round" className="drop-shadow-[0_0_8px_rgba(255,91,0,0.5)]" />
+                    <polyline points={`60,240 ${chartPoints} 740,240`} fill="url(#orangeGrad)" stroke="none" />
+                    <defs>
+                      <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FF5B00" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="#FF5B00" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+
+                    {data.monthlyTrend.map((t, i) => {
+                      const pointsArr = chartPoints.split(' ');
+                      if (!pointsArr[i]) return null;
+                      const [px, py] = pointsArr[i].split(',').map(Number);
+                      return (
+                        <g key={i} className="group/point">
+                          <circle 
+                            cx={px} cy={py} r={5 / zoom} fill="#FF5B00" 
+                            className="transition-all hover:fill-white cursor-pointer" 
+                            onClick={() => fetchDrilldown(t.month_index)}
+                          />
+                          <text
+                            x={px} y={py - (20 / zoom)}
+                            textAnchor="middle"
+                            className="text-[16px] fill-white font-black opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                            style={{ fontSize: `${16/zoom}px` }}
+                          >
+                            {t.avg_tickets_per_line}
+                          </text>
+                          <text 
+                            x={px} y={260} 
+                            textAnchor="middle" 
+                            className="text-[11px] fill-slate-400 font-bold uppercase"
+                            style={{ fontSize: `${11/zoom}px` }}
+                          >
+                            M{t.month_index}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </>
+                )}
+              </g>
+
+              {/* Grid & Y-Axis (Static - outside the group) */}
               {[0, 0.5, 1].map(p => {
-                const maxVal = Math.max(...data.monthlyTrend.map(t => Number(t.avg_resolution_hours))) || 1;
+                const maxVal = Math.max(...data.monthlyTrend.map(t => Number(t.avg_tickets_per_line))) || 1;
                 const y = 60 + p * 180;
                 const val = (maxVal * (1 - p)).toFixed(1);
                 return (
                   <g key={p}>
                     <line x1="60" y1={y} x2="740" y2={y} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
-                    <text x="50" y={y + 4} textAnchor="end" className="text-[12px] fill-slate-500 font-black">{val}ч</text>
-                  </g>
-                );
-              })}
-
-              <polyline
-                points={mttrChartPoints}
-                fill="none"
-                stroke="#10B981"
-                strokeWidth="4"
-                strokeLinecap="round"
-                className="drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-              />
-              {data.monthlyTrend.map((t, i) => {
-                const points = mttrChartPoints.split(' ');
-                if (!points[i]) return null;
-                const [px, py] = points[i].split(',').map(Number);
-                return (
-                  <g key={i} className="group/point">
-                    <circle cx={px} cy={py} r="4" fill="#10B981" />
-                    <text
-                      x={px} y={py - 20}
-                      textAnchor="middle"
-                      className="text-[16px] fill-white font-black opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                    >
-                      {t.avg_resolution_hours}ч
-                    </text>
-                    <text x={px} y={260} textAnchor="middle" className="text-[11px] fill-slate-500 font-bold uppercase">M{t.month_index}</text>
+                    <text x="50" y={y + 4} textAnchor="end" className="text-[12px] fill-slate-500 font-black">{val}</text>
                   </g>
                 );
               })}
             </svg>
           </div>
         </div>
+      </div>
 
-        {/* Category Distribution */}
-        <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-xl font-black text-white">Распределение проблем</h2>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Топ-5 категорий обращений</p>
-            </div>
-            <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-              <PieChart className="w-5 h-5 text-amber-500" />
-            </div>
+      {/* MTTR Chart — Full Width */}
+      <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-xl font-black text-white">Среднее время решения (MTTR)</h2>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Динамика скорости закрытия обращений (часы)</p>
           </div>
-
-          <div className="space-y-4 pt-4">
-            {data.categories.slice(0, 5).map((cat, i) => {
-              const maxCount = Math.max(...data.categories.map(c => c.ticket_count)) || 1;
-              const widthPerc = (cat.ticket_count / maxCount) * 100;
-              return (
-                <div key={i} className="space-y-1">
-                  <div className="flex justify-between text-[11px] font-black uppercase tracking-tight">
-                    <span className="text-white/60">{cat.category_name}</span>
-                    <span className="text-white">{cat.ticket_count}</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500/50 rounded-full transition-all duration-1000"
-                      style={{ width: `${widthPerc}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+              <Clock className="w-5 h-5 text-emerald-500" />
+            </div>
+            <ZoomControls />
           </div>
         </div>
+
+        <div 
+          className="relative h-[300px] w-full cursor-grab overflow-hidden"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
+            <g transform={`translate(${pan}, 0) scale(${zoom}, 1)`}>
+              <polyline
+                points={mttrChartPoints}
+                fill="none"
+                stroke="#10B981"
+                strokeWidth={4 / zoom}
+                strokeLinecap="round"
+                className="drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+              />
+              {data.monthlyTrend.map((t, i) => {
+                const pointsArr = mttrChartPoints.split(' ');
+                if (!pointsArr[i]) return null;
+                const [px, py] = pointsArr[i].split(',').map(Number);
+                return (
+                  <g key={i} className="group/point">
+                    <circle cx={px} cy={py} r={4 / zoom} fill="#10B981" />
+                    <text
+                      x={px} y={py - (20 / zoom)}
+                      textAnchor="middle"
+                      className="text-[16px] fill-white font-black opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                      style={{ fontSize: `${16/zoom}px` }}
+                    >
+                      {t.avg_resolution_hours}ч
+                    </text>
+                    <text 
+                      x={px} y={260} 
+                      textAnchor="middle" 
+                      className="text-[11px] fill-slate-500 font-bold uppercase"
+                      style={{ fontSize: `${11/zoom}px` }}
+                    >
+                      M{t.month_index}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+
+            {/* Grid & Y-Axis (Static) */}
+            {[0, 0.5, 1].map(p => {
+              const maxVal = Math.max(...data.monthlyTrend.map(t => Number(t.avg_resolution_hours))) || 1;
+              const y = 60 + p * 180;
+              const val = (maxVal * (1 - p)).toFixed(1);
+              return (
+                <g key={p}>
+                  <line x1="60" y1={y} x2="740" y2={y} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
+                  <text x="50" y={y + 4} textAnchor="end" className="text-[12px] fill-slate-500 font-black">{val}ч</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
+
+      {/* Category Analysis — Two Charts */}
+      {(() => {
+        const CATEGORY_COLORS = ['#FF5B00', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#64748B'];
+
+        // --- Lifecycle chart data ---
+        const lifecycleData = data.categoryByLifecycle || [];
+        const lifecycleCategories = [...new Set(lifecycleData.map(d => d.category_name))];
+        const lifecycleMonths = [...new Set(lifecycleData.map(d => d.month_index))].sort((a, b) => a - b);
+        const lifecycleMax = Math.max(...lifecycleData.map(d => d.avg_per_line), 1);
+
+        const buildLifecyclePoints = (cat: string) => {
+          const padding = 60;
+          const width = 800;
+          const height = 300;
+          const stepX = (width - padding * 2) / Math.max(lifecycleMonths.length - 1, 1);
+          return lifecycleMonths.map((m, i) => {
+            const entry = lifecycleData.find(d => d.month_index === m && d.category_name === cat);
+            const val = entry?.avg_per_line || 0;
+            const x = padding + i * stepX;
+            const y = (height - padding) - (val / lifecycleMax) * (height - padding * 2);
+            return { x, y, val, month: m };
+          });
+        };
+
+        // --- Calendar chart data ---
+        const calendarData = data.categoryByCalendar || [];
+        const calendarCategories = [...new Set(calendarData.map(d => d.category_name))];
+        const calendarMonths = [...new Set(calendarData.map(d => d.calendar_month))].sort();
+        const calendarMax = Math.max(...calendarData.map(d => d.ticket_count), 1);
+
+        const buildCalendarPoints = (cat: string) => {
+          const padding = 60;
+          const width = 800;
+          const height = 300;
+          const stepX = (width - padding * 2) / Math.max(calendarMonths.length - 1, 1);
+          return calendarMonths.map((m, i) => {
+            const entry = calendarData.find(d => d.calendar_month === m && d.category_name === cat);
+            const val = entry?.ticket_count || 0;
+            const x = padding + i * stepX;
+            const y = (height - padding) - (val / calendarMax) * (height - padding * 2);
+            return { x, y, val, month: m };
+          });
+        };
+
+        const formatCalMonth = (m: string) => {
+          const [y, mo] = m.split('-');
+          const names = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+          return `${names[parseInt(mo) - 1]}'${y.slice(2)}`;
+        };
+
+        // Shared color legend
+        const allCats = [...new Set([...lifecycleCategories, ...calendarCategories])];
+        const isActive = (cat: string) => !highlightedCategory || highlightedCategory === cat;
+        const legend = (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {allCats.map((cat, i) => {
+              const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+              const active = isActive(cat);
+              const selected = highlightedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setHighlightedCategory(prev => prev === cat ? null : cat)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                    selected
+                      ? 'border-white/30 bg-white/10 ring-1 ring-white/20'
+                      : active
+                        ? 'border-white/5 hover:border-white/20 hover:bg-white/5'
+                        : 'border-transparent opacity-30 hover:opacity-60'
+                  }`}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span className="text-[10px] font-black text-white/70 uppercase tracking-wider">{cat}</span>
+                </button>
+              );
+            })}
+            {highlightedCategory && (
+              <button
+                onClick={() => setHighlightedCategory(null)}
+                className="px-2.5 py-1 rounded-lg border border-white/10 text-[10px] font-black text-white/40 uppercase tracking-wider hover:text-white/70 hover:border-white/20 transition-all"
+              >
+                Все
+              </button>
+            )}
+          </div>
+        );
+
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* By Lifecycle */}
+            <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-black text-white">Категории по жизненному циклу</h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Ср. обращений на линию • Относительные месяцы</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <ZoomControls />
+                </div>
+              </div>
+              {legend}
+              {lifecycleMonths.length > 0 ? (
+                <div 
+                  className="relative h-[280px] w-full cursor-grab overflow-hidden"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
+                    <g transform={`translate(${pan}, 0) scale(${zoom}, 1)`}>
+                      {lifecycleCategories.map((cat, ci) => {
+                        const pts = buildLifecyclePoints(cat);
+                        const color = CATEGORY_COLORS[allCats.indexOf(cat) % CATEGORY_COLORS.length];
+                        const polyStr = pts.map(p => `${p.x},${p.y}`).join(' ');
+                        return (
+                          <g key={cat}>
+                            <polyline
+                              points={polyStr}
+                              fill="none"
+                              stroke={color}
+                              strokeWidth={isActive(cat) ? 3 / zoom : 1.5 / zoom}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeOpacity={isActive(cat) ? 0.9 : 0.15}
+                            />
+                            {pts.map((p, pi) => (
+                              <g key={pi} className="group/catpoint" style={{ opacity: isActive(cat) ? 1 : 0.15 }}>
+                                <circle cx={p.x} cy={p.y} r={(isActive(cat) ? 3.5 : 2) / zoom} fill={color} />
+                                <text
+                                  x={p.x} y={p.y - (14 / zoom)}
+                                  textAnchor="middle"
+                                  className="fill-white font-black opacity-0 group-hover/catpoint:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+                                  style={{ fontSize: `${12/zoom}px` }}
+                                >
+                                  {p.val}
+                                </text>
+                              </g>
+                            ))}
+                          </g>
+                        );
+                      })}
+                      {/* X-Axis labels */}
+                      {lifecycleMonths.map((m, i) => {
+                        const padding = 60;
+                        const stepX = (800 - padding * 2) / Math.max(lifecycleMonths.length - 1, 1);
+                        const x = padding + i * stepX;
+                        // Show every label if <=12, every other if more
+                        if (lifecycleMonths.length > 12 && i % 2 !== 0 && i !== lifecycleMonths.length - 1) return null;
+                        return (
+                          <text key={m} x={x} y={268} textAnchor="middle" className="fill-slate-500 font-bold uppercase" style={{ fontSize: `${10/zoom}px` }}>
+                            M{m}
+                          </text>
+                        );
+                      })}
+                    </g>
+                    {/* Y-Axis grid */}
+                    {[0, 0.5, 1].map(p => {
+                      const y = 60 + p * 180;
+                      const val = (lifecycleMax * (1 - p)).toFixed(1);
+                      return (
+                        <g key={p}>
+                          <line x1="60" y1={y} x2="740" y2={y} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
+                          <text x="50" y={y + 4} textAnchor="end" className="text-[11px] fill-slate-500 font-black">{val}</text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              ) : (
+                <div className="text-center py-16 text-white/20 text-xs font-black uppercase tracking-widest">Нет данных</div>
+              )}
+            </div>
+
+            {/* By Calendar */}
+            <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-black text-white">Категории по календарю</h2>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Абсолютное кол-во • Календарные месяцы</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <ZoomControls />
+                </div>
+              </div>
+              {legend}
+              {calendarMonths.length > 0 ? (
+                <div 
+                  className="relative h-[280px] w-full cursor-grab overflow-hidden"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 800 300">
+                    <g transform={`translate(${pan}, 0) scale(${zoom}, 1)`}>
+                      {calendarCategories.map((cat, ci) => {
+                        const pts = buildCalendarPoints(cat);
+                        const color = CATEGORY_COLORS[allCats.indexOf(cat) % CATEGORY_COLORS.length];
+                        const polyStr = pts.map(p => `${p.x},${p.y}`).join(' ');
+                        return (
+                          <g key={cat}>
+                            <polyline
+                              points={polyStr}
+                              fill="none"
+                              stroke={color}
+                              strokeWidth={isActive(cat) ? 3 / zoom : 1.5 / zoom}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeOpacity={isActive(cat) ? 0.9 : 0.15}
+                            />
+                            {pts.map((p, pi) => (
+                              <g key={pi} className="group/calpoint" style={{ opacity: isActive(cat) ? 1 : 0.15 }}>
+                                <circle cx={p.x} cy={p.y} r={(isActive(cat) ? 3.5 : 2) / zoom} fill={color} />
+                                <text
+                                  x={p.x} y={p.y - (14 / zoom)}
+                                  textAnchor="middle"
+                                  className="fill-white font-black opacity-0 group-hover/calpoint:opacity-100 transition-opacity pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+                                  style={{ fontSize: `${12/zoom}px` }}
+                                >
+                                  {p.val}
+                                </text>
+                              </g>
+                            ))}
+                          </g>
+                        );
+                      })}
+                      {/* X-Axis labels */}
+                      {calendarMonths.map((m, i) => {
+                        const padding = 60;
+                        const stepX = (800 - padding * 2) / Math.max(calendarMonths.length - 1, 1);
+                        const x = padding + i * stepX;
+                        if (calendarMonths.length > 12 && i % 2 !== 0 && i !== calendarMonths.length - 1) return null;
+                        return (
+                          <text key={m} x={x} y={268} textAnchor="middle" className="fill-slate-500 font-bold" style={{ fontSize: `${9/zoom}px` }}>
+                            {formatCalMonth(m)}
+                          </text>
+                        );
+                      })}
+                    </g>
+                    {/* Y-Axis grid */}
+                    {[0, 0.5, 1].map(p => {
+                      const y = 60 + p * 180;
+                      const val = Math.round(calendarMax * (1 - p));
+                      return (
+                        <g key={p}>
+                          <line x1="60" y1={y} x2="740" y2={y} stroke="white" strokeOpacity="0.05" strokeDasharray="4 4" />
+                          <text x="50" y={y + 4} textAnchor="end" className="text-[11px] fill-slate-500 font-black">{val}</text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              ) : (
+                <div className="text-center py-16 text-white/20 text-xs font-black uppercase tracking-widest">Нет данных</div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stats Table */}
       <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface">
@@ -530,12 +825,12 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                   </div>
                 </th>
                 <th className="px-4 py-4 text-center">
-                  <div className="flex items-center justify-center gap-1" title="Среднее время от открытия до закрытия тикета (календарные часы). Включает время ожидания ответа клиента или запчастей.">
+                  <div className="flex items-center justify-center gap-1" title="Среднее время от открытия до закрытия обращения (календарные часы). Включает время ожидания ответа клиента или запчастей.">
                     MTTR <HelpCircle className="w-2.5 h-2.5 opacity-40" />
                   </div>
                 </th>
                 <th className="px-4 py-4 text-center">
-                  <div className="flex items-center justify-center gap-1" title="Чистое время активной работы инженеров (человеко-часы). Не включает время, когда тикет был 'На паузе' или в статусе 'В ожидании'.">
+                  <div className="flex items-center justify-center gap-1" title="Чистое время активной работы инженеров (человеко-часы). Не включает время, когда обращение было 'На паузе' или в статусе 'В ожидании'.">
                     Затраты <HelpCircle className="w-2.5 h-2.5 opacity-40" />
                   </div>
                 </th>
@@ -696,10 +991,10 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
 
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               {isDrilldownLoading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <div className="w-10 h-10 border-4 border-[#FF5B00]/20 border-t-[#FF5B00] rounded-full animate-spin" />
-                  <p className="text-white/30 font-black uppercase tracking-widest text-[10px]">Загрузка деталей...</p>
-                </div>
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="w-10 h-10 border-4 border-[#FF5B00]/20 border-t-[#FF5B00] rounded-full animate-spin" />
+                    <p className="text-white/30 font-black uppercase tracking-widest text-[10px]">Загрузка обращений...</p>
+                  </div>
               ) : drilldownTickets.length > 0 ? (
                 <div className="space-y-4">
                   {drilldownTickets.map((ticket, i) => (

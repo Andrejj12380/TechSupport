@@ -466,7 +466,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {/* Active Tickets */}
       <div className="glass-card rounded-[2.5rem] shadow-2xl shadow-black/20 border border-white/10 overflow-hidden glass-surface">
         <SectionHeader
-          title="Заявки в работе"
+          title="Обращения в работе"
           subtitle="Очередь активных инцидентов"
           badge={
             <span className="px-3 py-1 bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase rounded-full border border-amber-500/20">
@@ -522,7 +522,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 ))}
                 {openTickets.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 sm:px-8 py-16 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет активных заявок</td>
+                    <td colSpan={5} className="px-4 sm:px-8 py-16 text-center text-slate-400 font-bold uppercase tracking-widest opacity-40">Нет активных обращений</td>
                   </tr>
                 )}
               </tbody>
@@ -538,7 +538,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 }}
                 className="text-sm font-bold text-[#FF5B00] hover:text-[#e65200] transition-colors flex items-center gap-1"
               >
-                Все заявки <ChevronRight className="w-4 h-4" />
+                Все обращения <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -742,7 +742,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                     <span className="font-black text-[#FF5B00]">
                                       {formatHoursMinutes(row[`avg_${avgPeriod}`])}
                                     </span>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">В среднем</span>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">На одно обращение</span>
                                   </div>
                                 </td>
                               );

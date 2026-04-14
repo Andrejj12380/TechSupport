@@ -108,7 +108,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
             case 'Линия': return <Workflow className="w-4 h-4" />;
             case 'Контакт': return <UserIcon className="w-4 h-4" />;
             case 'Оборудование': return <Settings className="w-4 h-4" />;
-            case 'Тикет': return <MessageSquare className="w-4 h-4" />;
+            case 'Обращение': return <MessageSquare className="w-4 h-4" />;
             case 'История': return <History className="w-4 h-4" />;
             default: return <FileText className="w-4 h-4" />;
         }

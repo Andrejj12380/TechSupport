@@ -1428,7 +1428,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                     window.location.reload(); // Temporary hammer to trigger App.tsx logic
                                   }}
                                   className="p-2 text-slate-300 dark:text-slate-600 hover:text-primary transition-all opacity-0 group-hover:opacity-100"
-                                  title="Создать тикет"
+                                  title="Создать обращение"
                                 >
                                   <MessageSquare className="w-4 h-4" />
                                 </button>
@@ -1467,7 +1467,7 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                         <span className="font-mono text-xs font-black text-primary">{e.serial_number || '—'}</span>
                                       </div>
                                       <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-400">Дата уст.</span>
+                                        <span className="text-white/40 font-bold">Активные обращения</span>
                                         <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{e.install_date ? new Date(e.install_date).toLocaleDateString() : '—'}</span>
                                       </div>
                                       <div className="flex justify-between items-center">

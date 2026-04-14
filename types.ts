@@ -282,6 +282,17 @@ export interface PostImplementationAnalytics {
     category_name: string;
     ticket_count: number;
   }[];
+  categoryByLifecycle: {
+    month_index: number;
+    category_name: string;
+    ticket_count: number;
+    avg_per_line: number;
+  }[];
+  categoryByCalendar: {
+    calendar_month: string;
+    category_name: string;
+    ticket_count: number;
+  }[];
 }
 
 export interface AnalyticsDrilldownTicket {

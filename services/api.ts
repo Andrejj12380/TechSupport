@@ -15,7 +15,8 @@ import {
   SiteContact,
   TicketCategory,
   CameraPreset,
-  PostImplementationAnalytics
+  PostImplementationAnalytics,
+  AnalyticsDrilldownTicket
 } from '../types';
 
 class ApiService {
