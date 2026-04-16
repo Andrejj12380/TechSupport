@@ -141,6 +141,8 @@ const App: React.FC = () => {
   };
 
   const toggleTheme = () => {
+    // Suppress all CSS transitions during theme switch to prevent jank
+    document.documentElement.classList.add('theme-switching');
     const newTheme = !isDarkMode;
     setIsDarkMode(newTheme);
     if (newTheme) {
@@ -150,6 +152,12 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+    // Re-enable transitions after the browser has painted the new theme
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove('theme-switching');
+      });
+    });
   };
 
   const handleSearch = async (e: React.FormEvent) => {

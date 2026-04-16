@@ -1,3 +1,14 @@
+/* === THEME SWITCH PERFORMANCE === */
+/* Suppress ALL transitions during theme switch to prevent jank from
+   animating expensive properties (backdrop-filter, box-shadow, etc.) */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+}
+
 :root {
   /* Premium Palette - Solar Orange (#FF5B00) */
   --primary: #FF5B00;

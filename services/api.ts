@@ -257,8 +257,12 @@ class ApiService {
     return this.request('/tickets/analytics/post-implementation');
   }
 
-  async getPostImplementationDrilldown(monthIndex: number): Promise<AnalyticsDrilldownTicket[]> {
-    return this.request(`/tickets/analytics/post-implementation/drilldown/${monthIndex}`);
+  async getPostImplementationDrilldown(monthIndex: number | string, filters?: { category?: string; calendarMonth?: string }): Promise<AnalyticsDrilldownTicket[]> {
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.calendarMonth) params.append('calendarMonth', filters.calendarMonth);
+    const qs = params.toString();
+    return this.request(`/tickets/analytics/post-implementation/drilldown/${monthIndex}${qs ? '?' + qs : ''}`);
   }
 
   // Health check

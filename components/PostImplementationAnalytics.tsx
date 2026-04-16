@@ -31,7 +31,8 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
   const [error, setError] = useState<string | null>(null);
   const [filterMinMonths, setFilterMinMonths] = useState(0);
   const [expandedClients, setExpandedClients] = useState<Set<number>>(new Set());
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | string | null>(null);
+  const [drilldownTitle, setDrilldownTitle] = useState('');
   const [drilldownTickets, setDrilldownTickets] = useState<AnalyticsDrilldownTicket[]>([]);
   const [isDrilldownLoading, setIsDrilldownLoading] = useState(false);
 
@@ -75,11 +76,12 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
 
   const handleMouseUp = () => setIsDragging(false);
 
-  const fetchDrilldown = async (monthIndex: number) => {
+  const fetchDrilldown = async (monthIndex: number | string, title: string, filters?: { category?: string; calendarMonth?: string }) => {
     try {
       setSelectedMonth(monthIndex);
+      setDrilldownTitle(title);
       setIsDrilldownLoading(true);
-      const tickets = await api.getPostImplementationDrilldown(monthIndex);
+      const tickets = await api.getPostImplementationDrilldown(monthIndex, filters);
       setDrilldownTickets(tickets);
     } catch (err: any) {
       console.error('Error fetching drilldown:', err);
@@ -415,7 +417,7 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                           <circle 
                             cx={px} cy={py} r={5 / zoom} fill="#FF5B00" 
                             className="transition-all hover:fill-white cursor-pointer" 
-                            onClick={() => fetchDrilldown(t.month_index)}
+                            onClick={() => fetchDrilldown(t.month_index, `Тренд: Месяц ${t.month_index}`)}
                           />
                           <text
                             x={px} y={py - (20 / zoom)}
@@ -457,8 +459,10 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
         </div>
       </div>
 
-      {/* MTTR Chart — Full Width */}
-      <div className="glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
+      {/* MTTR + Category Rating */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+      {/* MTTR Chart */}
+      <div className="lg:col-span-3 glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-xl font-black text-white">Среднее время решения (MTTR)</h2>
@@ -495,7 +499,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                 const [px, py] = pointsArr[i].split(',').map(Number);
                 return (
                   <g key={i} className="group/point">
-                    <circle cx={px} cy={py} r={4 / zoom} fill="#10B981" />
+                    <circle 
+                      cx={px} cy={py} r={4 / zoom} fill="#10B981" 
+                      className="cursor-pointer hover:fill-white transition-all"
+                      onClick={() => fetchDrilldown(t.month_index, `MTTR: Месяц ${t.month_index} (${t.avg_resolution_hours}ч)`)}
+                    />
                     <text
                       x={px} y={py - (20 / zoom)}
                       textAnchor="middle"
@@ -532,6 +540,40 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
           </svg>
         </div>
       </div>
+
+      {/* Category Rating */}
+      <div className="lg:col-span-2 glass-card rounded-[2.5rem] border border-white/10 overflow-hidden glass-surface p-8 flex flex-col">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-black text-white">Рейтинг категорий</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Всего обращений по типам</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 flex-1 flex flex-col justify-center">
+          {data.categories.slice(0, 7).map((cat, i) => {
+            const maxCount = Math.max(...data.categories.map(c => c.ticket_count)) || 1;
+            const widthPerc = (cat.ticket_count / maxCount) * 100;
+            const colors = ['#FF5B00', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
+            const color = colors[i % colors.length];
+            return (
+              <div key={i} className="space-y-1 group cursor-pointer" onClick={() => fetchDrilldown('all', `Категория: ${cat.category_name}`, { category: cat.category_name })}>
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                  <span className="text-white/60 group-hover:text-white/90 transition-colors">{cat.category_name}</span>
+                  <span className="text-white">{cat.ticket_count}</span>
+                </div>
+                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 group-hover:brightness-125"
+                    style={{ width: `${widthPerc}%`, backgroundColor: `${color}80` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
 
       {/* Category Analysis — Two Charts */}
       {(() => {
@@ -664,7 +706,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                             />
                             {pts.map((p, pi) => (
                               <g key={pi} className="group/catpoint" style={{ opacity: isActive(cat) ? 1 : 0.15 }}>
-                                <circle cx={p.x} cy={p.y} r={(isActive(cat) ? 3.5 : 2) / zoom} fill={color} />
+                                <circle 
+                                  cx={p.x} cy={p.y} r={(isActive(cat) ? 3.5 : 2) / zoom} fill={color}
+                                  className="cursor-pointer hover:stroke-white hover:stroke-2 transition-all"
+                                  onClick={() => fetchDrilldown(p.month, `${cat}: Месяц ${p.month}`, { category: cat })}
+                                />
                                 <text
                                   x={p.x} y={p.y - (14 / zoom)}
                                   textAnchor="middle"
@@ -752,7 +798,11 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                             />
                             {pts.map((p, pi) => (
                               <g key={pi} className="group/calpoint" style={{ opacity: isActive(cat) ? 1 : 0.15 }}>
-                                <circle cx={p.x} cy={p.y} r={(isActive(cat) ? 3.5 : 2) / zoom} fill={color} />
+                                <circle 
+                                  cx={p.x} cy={p.y} r={(isActive(cat) ? 3.5 : 2) / zoom} fill={color}
+                                  className="cursor-pointer hover:stroke-white hover:stroke-2 transition-all"
+                                  onClick={() => fetchDrilldown(0, `${cat}: ${formatCalMonth(p.month)}`, { category: cat, calendarMonth: p.month })}
+                                />
                                 <text
                                   x={p.x} y={p.y - (14 / zoom)}
                                   textAnchor="middle"
@@ -977,9 +1027,9 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                   <div className="w-8 h-8 rounded-lg bg-[#FF5B00]/20 flex items-center justify-center">
                     <Activity className="w-4 h-4 text-[#FF5B00]" />
                   </div>
-                  <h2 className="text-xl font-black text-white uppercase tracking-tight">Детализация: Месяц {selectedMonth}</h2>
+                  <h2 className="text-xl font-black text-white uppercase tracking-tight">{drilldownTitle || `Детализация: Месяц ${selectedMonth}`}</h2>
                 </div>
-                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Все обращения данного периода жизненного цикла</p>
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">{drilldownTickets.length} обращений</p>
               </div>
               <button 
                 onClick={() => setSelectedMonth(null)}
@@ -1008,6 +1058,19 @@ const PostImplementationAnalytics: React.FC<PostImplementationAnalyticsProps> = 
                           <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-white/40 uppercase border border-white/5">
                             {ticket.category_name}
                           </span>
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
+                            ticket.status === 'solved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                            ticket.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            ticket.status === 'on_hold' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                            'bg-white/5 text-white/40 border-white/5'
+                          }`}>
+                            {ticket.status === 'solved' ? 'Решено' : ticket.status === 'in_progress' ? 'В работе' : ticket.status === 'on_hold' ? 'На паузе' : ticket.status}
+                          </span>
+                          {ticket.resolution_hours != null && (
+                            <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-white/40 uppercase border border-white/5">
+                              {ticket.resolution_hours}ч
+                            </span>
+                          )}
                           <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] font-black text-white/40 uppercase border border-white/5">
                             {new Date(ticket.reported_at).toLocaleDateString('ru-RU')}
                           </span>

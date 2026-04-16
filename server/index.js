@@ -738,6 +738,32 @@ app.get('/api/tickets/analytics/post-implementation', authenticateToken, async (
 app.get('/api/tickets/analytics/post-implementation/drilldown/:monthIndex', authenticateToken, async (req, res) => {
   try {
     const { monthIndex } = req.params;
+    const { category, calendarMonth } = req.query;
+
+    // Build WHERE conditions and params dynamically
+    const conditions = [];
+    const params = [];
+    let paramIdx = 1;
+
+    if (calendarMonth) {
+      // Calendar mode: filter by YYYY-MM of reported_at
+      conditions.push(`TO_CHAR(t.reported_at, 'YYYY-MM') = $${paramIdx}`);
+      params.push(calendarMonth);
+      paramIdx++;
+    } else if (monthIndex !== 'all') {
+      // Lifecycle mode: filter by relative month_index
+      conditions.push(`(EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
+           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int = $${paramIdx}`);
+      params.push(monthIndex);
+      paramIdx++;
+    }
+
+    if (category && category !== 'all') {
+      conditions.push(`COALESCE(tc.name, 'Не указано') = $${paramIdx}`);
+      params.push(category);
+      paramIdx++;
+    }
+
     const drilldownQuery = `
       WITH LineStart AS (
         SELECT 
@@ -748,28 +774,27 @@ app.get('/api/tickets/analytics/post-implementation/drilldown/:monthIndex', auth
         FROM production_lines pl
         JOIN sites s ON pl.site_id = s.id
         JOIN clients c ON s.client_id = c.id
-      ),
-      TicketRelative AS (
-        SELECT 
-          t.id,
-          t.problem_description,
-          t.reported_at,
-          ls.client_name,
-          ls.line_name,
-          COALESCE(tc.name, 'Не указано') as category_name,
-          (EXTRACT(YEAR FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)) * 12 + 
-           EXTRACT(MONTH FROM AGE(t.reported_at, ls.start_date::timestamp with time zone)))::int as month_index
-        FROM support_tickets t
-        JOIN LineStart ls ON t.line_id = ls.line_id
-        LEFT JOIN ticket_categories tc ON t.category_id = tc.id
-        WHERE t.reported_at >= ls.start_date::timestamp with time zone
       )
-      SELECT * FROM TicketRelative
-      WHERE month_index = $1
-      ORDER BY reported_at DESC;
+      SELECT 
+        t.id,
+        t.problem_description,
+        t.reported_at,
+        t.resolved_at,
+        t.total_work_minutes,
+        t.status,
+        ls.client_name,
+        ls.line_name,
+        COALESCE(tc.name, 'Не указано') as category_name,
+        ROUND(COALESCE(NULLIF(t.total_work_minutes, 0) / 60.0, EXTRACT(EPOCH FROM (t.resolved_at - t.reported_at)) / 3600.0)::numeric, 1) as resolution_hours
+      FROM support_tickets t
+      JOIN LineStart ls ON t.line_id = ls.line_id
+      LEFT JOIN ticket_categories tc ON t.category_id = tc.id
+      WHERE t.reported_at >= ls.start_date::timestamp with time zone
+        AND ${conditions.join(' AND ')}
+      ORDER BY t.reported_at DESC;
     `;
 
-    const result = await pool.query(drilldownQuery, [monthIndex]);
+    const result = await pool.query(drilldownQuery, params);
     res.json(result.rows);
   } catch (err) {
     console.error('Error fetching analytics drilldown:', err);

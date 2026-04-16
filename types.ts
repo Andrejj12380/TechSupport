@@ -299,7 +299,11 @@ export interface AnalyticsDrilldownTicket {
   id: number;
   problem_description: string;
   reported_at: string;
+  resolved_at?: string;
+  total_work_minutes?: number;
+  status: string;
   client_name: string;
   line_name: string;
   category_name: string;
+  resolution_hours?: number;
 }

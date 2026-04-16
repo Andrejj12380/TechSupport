@@ -180,26 +180,31 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
         setIsLoading(true); // Ensure loading is shown
         try {
           if (lineId) {
-            const allLines = await api.getAllLines();
-            const targetLine = allLines.find(l => l.id === parseInt(lineId));
-            if (targetLine) {
-              for (const client of allClients) {
-                const siteList = await api.getSites(client.id);
+            const targetLine = allLinesData.find(l => l.id === parseInt(lineId));
+            if (targetLine && targetLine.client_id) {
+              const client = allClients.find(c => c.id === targetLine.client_id);
+              if (client) {
+                setSelectedClient(client);
+                // Parallel data fetching for massive speedup
+                const [siteList, eq, rem, ins] = await Promise.all([
+                  api.getSites(client.id),
+                  api.getEquipment(targetLine.id),
+                  api.getRemoteAccess(targetLine.id),
+                  api.getInstructions(targetLine.id)
+                ]);
+                setSites(siteList);
                 const site = siteList.find(s => s.id === targetLine.site_id);
                 if (site) {
-                  setSelectedClient(client);
-                  setSites(siteList);
                   setSelectedSite(site);
                   const lineList = await api.getLines(site.id);
                   setLines(lineList);
                   setSelectedLine(targetLine);
-                  // Load line-specific data
-                  setEquipment(await api.getEquipment(targetLine.id));
-                  setRemote(await api.getRemoteAccess(targetLine.id));
-                  setInstructions(await api.getInstructions(targetLine.id));
-                  setIsLoading(false);
-                  return;
+                  setEquipment(eq);
+                  setRemote(rem);
+                  setInstructions(ins);
                 }
+                setIsLoading(false);
+                return;
               }
             }
           }
