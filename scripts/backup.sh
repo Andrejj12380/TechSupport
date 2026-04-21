@@ -4,7 +4,7 @@
 
 # 1. Настройки (пути)
 BACKUP_DIR="/root/backups"
-APP_DIR="/root/app"
+APP_DIR="/root/TechSupport"
 DATE=$(date +%Y-%m-%d_%H%M%S)
 
 # Создаем папку для бэкапов, если её нет
@@ -12,7 +12,8 @@ mkdir -p $BACKUP_DIR
 
 # 2. Бэкап Базы Данных (PostgreSQL)
 echo "--- Начинаю бэкап базы данных ---"
-pg_dump -U techadmin techsupport_db > $BACKUP_DIR/db_$DATE.sql
+# Выполняем под пользователем postgres, так как peer authentication
+sudo -u postgres pg_dump -d equipment_management > $BACKUP_DIR/db_$DATE.sql
 
 # 3. Бэкап загруженных файлов (папка uploads)
 echo "--- Начинаю архивацию файлов (мануалы, картинки) ---"
