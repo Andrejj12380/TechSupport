@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Client, Site, ProductionLine, Equipment, RemoteAccess, Instruction, EquipmentStatus, User, SiteContact } from '../types';
+import { Client, Site, ProductionLine, Equipment, RemoteAccess, Instruction, EquipmentStatus, User, SiteContact, FileAttachment } from '../types';
 import { IconChevronRight, IconCopy, IconChevronLeft, IconChevronDown } from './Icons';
 import { MessageSquare, ChevronRight } from 'lucide-react';
 import ExcelImportModal from './ExcelImportModal';
+import FileUploader from './FileUploader';
+import AttachmentList from './AttachmentList';
 
 const inputClass = "w-full border border-slate-200 dark:border-white/10 rounded-2xl p-3 lg:p-4 text-sm bg-white dark:bg-white/5 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#FF5B00]/20 focus:border-[#FF5B00] outline-none transition-all backdrop-blur-md";
 
@@ -150,11 +152,20 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
   const [supportFilter, setSupportFilter] = useState<'all' | 'active' | 'expired'>('all');
   const [searchClientQuery, setSearchClientQuery] = useState('');
   const [expandedEquipId, setExpandedEquipId] = useState<number | null>(null);
+  const [equipAttachments, setEquipAttachments] = useState<FileAttachment[]>([]);
 
   const [isLoading, setIsLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return !!(params.get('client') || params.get('line'));
   });
+
+
+  // Sync equipAttachments when equipment modal opens
+  useEffect(() => {
+    if (modal?.type === 'equipment') {
+      setEquipAttachments(modal.data?.attachments || []);
+    }
+  }, [modal?.type, modal?.data?.id]);
 
   // Combined initialization and navigation
   useEffect(() => {
@@ -509,14 +520,26 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
           setSites(await api.getSites(selectedClient.id));
         }
       } else if (modal?.type === 'equipment' && selectedLine) {
-        modal.data && modal.data.id
-          ? await api.updateEquipment(modal.data.id, payload)
-          : await api.addEquipment({
+        let savedEquip: Equipment;
+        if (modal.data && modal.data.id) {
+          savedEquip = await api.updateEquipment(modal.data.id, payload);
+        } else {
+          savedEquip = await api.addEquipment({
             ...payload,
             line_id: selectedLine.id,
             status: (payload.status as EquipmentStatus) || 'active',
             install_date: new Date().toISOString().split('T')[0]
           });
+        }
+        // Save attachments if changed
+        const eqId = savedEquip?.id || modal.data?.id;
+        if (eqId) {
+          const oldAtts = JSON.stringify(modal.data?.attachments || []);
+          const newAtts = JSON.stringify(equipAttachments);
+          if (oldAtts !== newAtts) {
+            await api.updateEquipmentAttachments(eqId, equipAttachments);
+          }
+        }
         setEquipment(await api.getEquipment(selectedLine.id));
       } else if (modal?.type === 'remote' && selectedLine) {
         await api.saveRemoteAccess(modal.data?.id || null, { ...payload, line_id: selectedLine.id });
@@ -1415,7 +1438,15 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                 {e.status === 'active' ? 'OK' : e.status === 'maintenance' ? 'SVC' : 'ERR'}
                               </span>
                             </td>
-                            <td className="px-6 py-3 text-slate-500 dark:text-slate-400 text-xs italic max-w-[200px] truncate">{e.notes}</td>
+                            <td className="px-6 py-3 text-slate-500 dark:text-slate-400 text-xs italic max-w-[200px] truncate">
+                              {e.notes}
+                              {(e.attachments?.length ?? 0) > 0 && (
+                                <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] font-bold text-[#FF5B00] align-middle not-italic" title={`${e.attachments!.length} вложени${e.attachments!.length === 1 ? 'е' : 'й'}`}>
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                  {e.attachments!.length}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-6 py-3 text-right space-x-1">
                               {!isViewer && (
                                 <button
@@ -1487,6 +1518,16 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                                       {e.notes || 'Дополнительных заметок нет.'}
                                     </div>
                                   </div>
+                                  {/* Equipment Attachments (expanded row) */}
+                                  {(e.attachments?.length ?? 0) > 0 && (
+                                    <div className="space-y-4 md:col-span-3">
+                                      <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1 flex items-center gap-2">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                        Вложения <span className="text-[#FF5B00]">{e.attachments!.length}</span>
+                                      </h5>
+                                      <AttachmentList attachments={e.attachments!} />
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1911,6 +1952,24 @@ const ClientManager: React.FC<ClientManagerProps> = ({ user }) => {
                   <textarea name="notes" defaultValue={modal.data?.notes} className={inputClass} style={{ minHeight: '80px' }} placeholder="Ревизия платы, особенности ПО..." />
                 </div>
               </div>
+
+              {/* Equipment Attachments */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-3">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                  Вложения {equipAttachments.length > 0 && <span className="text-[#FF5B00]">{equipAttachments.length}</span>}
+                </label>
+                <AttachmentList
+                  attachments={equipAttachments}
+                  onRemove={(idx) => setEquipAttachments(prev => prev.filter((_, i) => i !== idx))}
+                />
+                <FileUploader
+                  directory="equipment"
+                  onUpload={(att) => setEquipAttachments(prev => [...prev, att])}
+                  className="mt-2"
+                />
+              </div>
+
               <input type="hidden" name="type_id" value={modal.data?.type_id || 1} />
             </div>
           </Modal>

@@ -144,7 +144,15 @@ const TicketsTable = ({
                                 <div className="text-xs font-medium text-white/50">{ticket.line_name || '—'}</div>
                             </td>
                             <td className="block md:table-cell px-0 py-2 md:px-6 md:py-5 max-w-md">
-                                <div className="text-sm font-bold text-slate-800 dark:text-white line-clamp-1">{ticket.problem_description}</div>
+                                <div className="text-sm font-bold text-slate-800 dark:text-white line-clamp-1">
+                                    {ticket.problem_description}
+                                    {(ticket.attachments?.length ?? 0) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] font-bold text-[#FF5B00] align-middle" title={`${ticket.attachments!.length} вложени${ticket.attachments!.length === 1 ? 'е' : 'й'}`}>
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                            {ticket.attachments!.length}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="text-xs text-white/40 font-medium">
                                     Контакт: {ticket.contact_name}
                                     <span className="ml-2 px-1.5 py-0.5 bg-white/10 rounded text-[10px] font-bold text-slate-500 uppercase">

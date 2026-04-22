@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { api } from '../services/api';
 import UserAvatar from './UserAvatar';
+import FileUploader from './FileUploader';
 import { Eye, EyeOff, Info } from 'lucide-react';
 import { useToast } from './Toast';
 
@@ -23,6 +24,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
         email: ''
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
     useEffect(() => {
         loadUsers();
@@ -49,6 +51,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                 role: user.role,
                 email: user.email || ''
             });
+            setAvatarUrl(user.avatar_url || null);
         } else {
             setEditingUser(null);
             setFormData({
@@ -57,6 +60,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                 role: 'engineer',
                 email: ''
             });
+            setAvatarUrl(null);
         }
         setIsModalOpen(true);
     };
@@ -64,14 +68,20 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            let savedUser: User;
             if (editingUser) {
-                await api.updateUser(editingUser.id, formData);
+                savedUser = await api.updateUser(editingUser.id, formData);
             } else {
                 if (!formData.password) {
                     setError('Пароль обязателен для новых пользователей');
                     return;
                 }
-                await api.createUser(formData);
+                savedUser = await api.createUser(formData);
+            }
+            // Save avatar if changed
+            const userId = savedUser?.id || editingUser?.id;
+            if (userId && avatarUrl !== (editingUser?.avatar_url || null)) {
+                await api.updateAvatar(userId, avatarUrl || '');
             }
             setIsModalOpen(false);
             loadUsers();
@@ -150,7 +160,7 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                                     <tr key={user.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
                                         <td className="px-8 py-5">
                                             <div className="flex items-center gap-4">
-                                                <UserAvatar username={user.username} size="md" />
+                                                <UserAvatar username={user.username} avatarUrl={user.avatar_url} size="md" />
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-slate-900 dark:text-slate-100">{user.username}</span>
                                                     <span className="text-[10px] text-slate-400 font-medium">ID: {user.id}</span>
@@ -217,6 +227,29 @@ const UserManager: React.FC<UserManagerProps> = ({ currentUser }) => {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                            {/* Avatar Upload Section */}
+                            <div className="flex flex-col items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-700">
+                                <div className="relative group">
+                                    <UserAvatar username={formData.username || '?'} avatarUrl={avatarUrl} size="xl" className="!w-20 !h-20 !text-2xl" />
+                                    {avatarUrl && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setAvatarUrl(null)}
+                                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                            title="Удалить аватар"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </div>
+                                <FileUploader
+                                    directory="avatars"
+                                    multiple={false}
+                                    accept="image/*"
+                                    compact
+                                    onUpload={(att) => setAvatarUrl(att.url)}
+                                />
+                            </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Имя пользователя</label>
                                 <input

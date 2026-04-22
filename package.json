@@ -11,15 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tiptap/extension-bubble-menu": "^3.22.2",
-    "@tiptap/extension-code-block-lowlight": "^3.22.2",
-    "@tiptap/extension-details": "^3.22.2",
-    "@tiptap/extension-heading": "^3.22.2",
-    "@tiptap/extension-highlight": "^3.22.2",
-    "@tiptap/extension-link": "^3.22.2",
-    "@tiptap/extension-placeholder": "^3.22.2",
-    "@tiptap/react": "^3.22.2",
-    "@tiptap/starter-kit": "^3.22.2",
+    "@blocknote/core": "^0.30.0",
+    "@blocknote/react": "^0.30.0",
+    "@blocknote/mantine": "^0.30.0",
     "@types/react-syntax-highlighter": "^15.5.13",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

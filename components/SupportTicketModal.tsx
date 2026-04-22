@@ -4,8 +4,10 @@ import {
     MessageSquare, AlertCircle, CheckCircle2, Clock, 
     Search, ChevronRight, Check
 } from 'lucide-react';
-import { SupportTicket, Client, ProductionLine, User, TicketCategory, SiteContact } from '../types';
+import { SupportTicket, Client, ProductionLine, User, TicketCategory, SiteContact, FileAttachment } from '../types';
 import { api } from '../services/api';
+import FileUploader from './FileUploader';
+import AttachmentList from './AttachmentList';
 
 // --- Glass Select Component (Internal) ---
 interface GlassSelectProps {
@@ -132,6 +134,7 @@ const SupportTicketModal = ({ isOpen, onClose, onSaved, ticket, clients, enginee
     const [availableContacts, setAvailableContacts] = useState<SiteContact[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [localAttachments, setLocalAttachments] = useState<FileAttachment[]>([]);
 
     const isViewer = currentUser?.role === 'viewer';
 
@@ -152,6 +155,7 @@ const SupportTicketModal = ({ isOpen, onClose, onSaved, ticket, clients, enginee
                 contact_channel: ticket.contact_channel || 'phone',
                 total_work_minutes: ticket.total_work_minutes || 0
             });
+            setLocalAttachments(ticket.attachments || []);
             fetchClientDetails(ticket.client_id);
         } else {
             const unknownCategoryId = categories.find(c => c.name.toLowerCase() === 'не известно')?.id || null;
@@ -171,6 +175,7 @@ const SupportTicketModal = ({ isOpen, onClose, onSaved, ticket, clients, enginee
             });
             setLines([]);
             setAvailableContacts([]);
+            setLocalAttachments([]);
         }
         setFormError(null);
     }, [ticket, isOpen, categories]);
@@ -239,8 +244,16 @@ const SupportTicketModal = ({ isOpen, onClose, onSaved, ticket, clients, enginee
 
             if (ticket) {
                 await api.updateTicket(ticket.id, payload);
+                // Save attachments separately via the dedicated endpoint
+                if (JSON.stringify(localAttachments) !== JSON.stringify(ticket.attachments || [])) {
+                    await api.updateTicketAttachments(ticket.id, localAttachments);
+                }
             } else {
-                await api.createTicket(payload);
+                const created = await api.createTicket(payload);
+                // Save attachments for the newly created ticket
+                if (localAttachments.length > 0 && created?.id) {
+                    await api.updateTicketAttachments(created.id, localAttachments);
+                }
             }
             onSaved();
             onClose();
@@ -394,6 +407,24 @@ const SupportTicketModal = ({ isOpen, onClose, onSaved, ticket, clients, enginee
                             className={`w-full px-5 py-3.5 bg-white/5 border-2 border-transparent focus:border-primary rounded-2xl outline-none font-bold text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/30 transition-all min-h-[100px] ${isViewer ? 'cursor-not-allowed opacity-70' : ''}`}
                             placeholder="Опишите принятые меры или итоговое решение..."
                         />
+                    </div>
+
+                    {/* Вложения (Attachments) */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                            Вложения {localAttachments.length > 0 && <span className="text-[#FF5B00]">{localAttachments.length}</span>}
+                        </label>
+                        <AttachmentList
+                            attachments={localAttachments}
+                            onRemove={!isViewer ? (idx) => setLocalAttachments(prev => prev.filter((_, i) => i !== idx)) : undefined}
+                        />
+                        {!isViewer && (
+                            <FileUploader
+                                directory="tickets"
+                                onUpload={(att) => setLocalAttachments(prev => [...prev, att])}
+                            />
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">

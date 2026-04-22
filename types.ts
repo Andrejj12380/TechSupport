@@ -3,11 +3,19 @@ export type EquipmentStatus = 'active' | 'maintenance' | 'faulty';
 export type RemoteAccessType = 'anydesk' | 'rdp' | 'vpn' | 'rudesktop' | 'rustdesk' | 'other';
 export type UserRole = 'admin' | 'engineer' | 'viewer';
 
+export interface FileAttachment {
+  url: string;
+  originalName: string;
+  size: number;
+  mimeType: string;
+}
+
 export interface User {
   id: number;
   username: string;
   role: UserRole;
   email: string | null;
+  avatar_url?: string | null;
   password_plain?: string;
   created_at: string;
 }
@@ -99,6 +107,7 @@ export interface Equipment {
   gateway?: string;
   db_connection?: string;
   display_order?: number;
+  attachments?: FileAttachment[];
 }
 
 
@@ -172,6 +181,8 @@ export interface KnowledgeBaseArticle {
   created_at: string;
   updated_at: string;
   attachments?: KnowledgeBaseAttachment[];
+  // Inline attachments (JSONB)
+  file_attachments?: FileAttachment[];
 }
 
 export interface TicketCategory {
@@ -215,6 +226,7 @@ export interface SupportTicket {
   line_warranty_start?: string;
   line_paid_support_start?: string;
   line_paid_support_end?: string;
+  attachments?: FileAttachment[];
 }
 
 export interface CameraParams {

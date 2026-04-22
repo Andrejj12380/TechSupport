@@ -16,7 +16,8 @@ import {
   TicketCategory,
   CameraPreset,
   PostImplementationAnalytics,
-  AnalyticsDrilldownTicket
+  AnalyticsDrilldownTicket,
+  FileAttachment
 } from '../types';
 
 class ApiService {
@@ -36,11 +37,14 @@ class ApiService {
       headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     }
 
+    // Destructure headers from options so they don't override our merged headers
+    const { headers: _optHeaders, ...restOptions } = options;
+
     let response: Response;
     try {
       response = await fetch(url, {
+        ...restOptions,
         headers,
-        ...options,
       });
     } catch (err: any) {
       // Network-level error (CORS/preflight/network down)
@@ -567,6 +571,39 @@ class ApiService {
   async deleteCameraPreset(id: number) {
     return this.request(`/camera-presets/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // --- File Upload & Attachments ---
+
+  async uploadFile(directory: 'avatars' | 'tickets' | 'equipment' | 'kb', file: File): Promise<FileAttachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.request(`/upload/${directory}`, {
+      method: 'POST',
+      body: formData,
+      headers: {} // allow browser to set multipart boundary
+    });
+  }
+
+  async updateAvatar(userId: number, avatarUrl: string): Promise<User> {
+    return this.request(`/users/${userId}/avatar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    });
+  }
+
+  async updateTicketAttachments(ticketId: number, attachments: FileAttachment[]): Promise<SupportTicket> {
+    return this.request(`/tickets/${ticketId}/attachments`, {
+      method: 'PATCH',
+      body: JSON.stringify({ attachments }),
+    });
+  }
+
+  async updateEquipmentAttachments(equipmentId: number, attachments: FileAttachment[]): Promise<Equipment> {
+    return this.request(`/equipment/${equipmentId}/attachments`, {
+      method: 'PATCH',
+      body: JSON.stringify({ attachments }),
     });
   }
 }

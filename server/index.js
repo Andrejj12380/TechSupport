@@ -69,11 +69,15 @@ pool.query(`
 
 const JWT_SECRET = process.env.JWT_SECRET || 'techsupport-pro-secret-key-2025';
 
-// Configure Multer for file uploads
-const uploadDir = path.join(__dirname, '../uploads/kb');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Configure Multer for file uploads — dynamic multi-directory storage
+const UPLOAD_DIRS = ['avatars', 'tickets', 'equipment', 'kb'];
+const uploadsRoot = path.join(__dirname, '../uploads');
+for (const sub of UPLOAD_DIRS) {
+  const dir = path.join(uploadsRoot, sub);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
+// Legacy alias used by KB attachments delete handler
+const uploadDir = path.join(uploadsRoot, 'kb');
 
 async function ensureTicketCategories() {
   try {
@@ -210,7 +214,13 @@ async function ensureCameraPresets() {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    // Dynamic directory: /api/upload/:directory uses req.params.directory
+    const subDir = req.params.directory || 'kb';
+    // Whitelist directories to prevent directory traversal
+    const safeDir = UPLOAD_DIRS.includes(subDir) ? subDir : 'kb';
+    const dest = path.join(uploadsRoot, safeDir);
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -218,10 +228,8 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
+// No fileSize limit per user request
+const upload = multer({ storage });
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -245,7 +253,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Session expired or invalid' });
     }
 
-    const userRes = await pool.query('SELECT id, username, role, email FROM users WHERE id = $1', [decoded.id]);
+    const userRes = await pool.query('SELECT id, username, role, email, avatar_url FROM users WHERE id = $1', [decoded.id]);
     if (userRes.rows.length === 0) return res.status(401).json({ error: 'User not found' });
 
     req.user = userRes.rows[0];
@@ -282,6 +290,88 @@ app.options('*', cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+// --- Universal File Upload Endpoint ---
+// POST /api/upload/:directory  (directory = avatars | tickets | equipment | kb)
+app.post('/api/upload/:directory', authenticateToken, upload.single('file'), (req, res) => {
+  try {
+    const { directory } = req.params;
+    // Role check: only admin/engineer can upload to tickets, equipment, kb
+    if (directory !== 'avatars' && !['admin', 'engineer'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const safeDir = UPLOAD_DIRS.includes(directory) ? directory : 'kb';
+    // Multer encodes originalname as latin1 — re-decode to UTF-8 for Cyrillic support
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    res.json({
+      url: `/uploads/${safeDir}/${req.file.filename}`,
+      originalName,
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+    });
+  } catch (err) {
+    console.error('Error in universal upload:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Avatar endpoint ---
+app.patch('/api/users/:id/avatar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Users can update own avatar; admins can update any
+    if (req.user.id !== parseInt(id) && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { avatar_url } = req.body;
+    const result = await pool.query(
+      'UPDATE users SET avatar_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username, role, email, avatar_url',
+      [avatar_url || null, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating avatar:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Ticket Attachments endpoint ---
+app.patch('/api/tickets/:id/attachments', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { attachments } = req.body; // Array of FileAttachment objects
+    const result = await pool.query(
+      'UPDATE support_tickets SET attachments = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [JSON.stringify(attachments || []), id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Ticket not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating ticket attachments:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Equipment Attachments endpoint ---
+app.patch('/api/equipment/:id/attachments', authenticateToken, authorize(['admin', 'engineer']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { attachments } = req.body;
+    const result = await pool.query(
+      'UPDATE equipment SET attachments = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [JSON.stringify(attachments || []), id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Equipment not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating equipment attachments:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/api/ticket-categories', authenticateToken, async (req, res) => {
   try {
@@ -853,7 +943,8 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id,
         username: user.username,
         role: user.role,
-        email: user.email
+        email: user.email,
+        avatar_url: user.avatar_url || null
       }
     });
   } catch (error) {
@@ -884,7 +975,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // Get all users
 app.get('/api/users', authenticateToken, authorize(['admin']), async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, role, email, password_plain, created_at, updated_at FROM users ORDER BY username ASC');
+    const result = await pool.query('SELECT id, username, role, email, password_plain, avatar_url, created_at, updated_at FROM users ORDER BY username ASC');
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2459,6 +2550,31 @@ async function ensureSupportTicketStatusConstraint() {
   }
 }
 
+// --- Auto-migration: Attachment columns for file upload support ---
+async function ensureAttachmentColumns() {
+  const migrations = [
+    { table: 'users', column: 'avatar_url', type: 'TEXT' },
+    { table: 'support_tickets', column: 'attachments', type: "JSONB DEFAULT '[]'::jsonb" },
+    { table: 'equipment', column: 'attachments', type: "JSONB DEFAULT '[]'::jsonb" },
+    { table: 'knowledge_base', column: 'attachments', type: "JSONB DEFAULT '[]'::jsonb" },
+  ];
+
+  for (const m of migrations) {
+    try {
+      const res = await pool.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2",
+        [m.table, m.column]
+      );
+      if (res.rows.length === 0) {
+        await pool.query(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.type}`);
+        console.log(`Applied migration: added ${m.table}.${m.column}`);
+      }
+    } catch (err) {
+      console.error(`Error ensuring ${m.table}.${m.column}:`, err);
+    }
+  }
+}
+
 ensureTicketCategories()
   .then(() => ensureTicketTimestamps())
   .then(() => ensureInstructionsLineFk())
@@ -2473,6 +2589,7 @@ ensureTicketCategories()
   .then(() => ensureSupportTicketStatusConstraint())
   .then(() => ensureCameraPresets())
   .then(() => ensureKbSchema(pool))
+  .then(() => ensureAttachmentColumns())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
